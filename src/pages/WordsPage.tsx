@@ -4,6 +4,7 @@ import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
+import { BulkImportModal } from '../components/BulkImportModal';
 import { useTts } from '../hooks/useTts';
 import { isDue } from '../lib/srs';
 
@@ -22,6 +23,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   const [examType, setExamType] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Word | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category))).sort(), [words]);
   const examTypes = useMemo(() => Array.from(new Set(words.map((w) => w.examType))).sort(), [words]);
@@ -60,11 +62,16 @@ export default function WordsPage({ app }: { app: UseAppState }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">단어장 ({words.length})</h1>
-        <Button onClick={openAdd}>
-          <Icon name="plus" className="h-4 w-4" /> 단어 추가
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <Icon name="book" className="h-4 w-4" /> 파일로 가져오기
+          </Button>
+          <Button onClick={openAdd}>
+            <Icon name="plus" className="h-4 w-4" /> 단어 추가
+          </Button>
+        </div>
       </div>
 
       <input
@@ -154,6 +161,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
       )}
 
       {modalOpen && <WordFormModal initial={editing} onClose={() => setModalOpen(false)} onSave={handleSave} />}
+      {importOpen && <BulkImportModal app={app} onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

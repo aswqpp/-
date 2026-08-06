@@ -45,6 +45,49 @@ export function useAppState() {
     });
   }, []);
 
+  const addWordsBulk = useCallback(
+    (rows: Omit<Word, 'id' | 'createdAt' | 'srs'>[], options: { skipDuplicates: boolean }) => {
+      const existing = new Set(state.words.map((w) => w.word.trim().toLowerCase()));
+      const seenInBatch = new Set<string>();
+      let added = 0;
+      let skippedDuplicates = 0;
+      const now = new Date().toISOString();
+
+      const newWords: Word[] = [];
+      for (const data of rows) {
+        const key = data.word.trim().toLowerCase();
+        const isDuplicate = existing.has(key) || seenInBatch.has(key);
+        if (isDuplicate && options.skipDuplicates) {
+          skippedDuplicates++;
+          continue;
+        }
+        seenInBatch.add(key);
+        added++;
+        newWords.push({
+          ...data,
+          id: genId(),
+          createdAt: now,
+          srs: {
+            easeFactor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            dueDate: todayIso(),
+            correctCount: 0,
+            wrongCount: 0,
+            lastReviewed: null,
+          },
+        });
+      }
+
+      if (newWords.length > 0) {
+        setState((s) => ({ ...s, words: [...newWords, ...s.words] }));
+      }
+
+      return { added, skippedDuplicates };
+    },
+    [state.words]
+  );
+
   const updateWord = useCallback((id: string, data: Partial<Omit<Word, 'id' | 'srs'>>) => {
     setState((s) => ({
       ...s,
@@ -90,6 +133,7 @@ export function useAppState() {
   return {
     state,
     addWord,
+    addWordsBulk,
     updateWord,
     deleteWord,
     gradeWord,
