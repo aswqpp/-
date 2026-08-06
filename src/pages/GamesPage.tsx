@@ -1,0 +1,67 @@
+import { useState } from 'react';
+import type { Screen } from '../types';
+import type { UseAppState } from '../hooks/useAppState';
+import { Card, EmptyState, Button } from '../components/ui';
+import { Icon } from '../components/Icon';
+import AnagramGame from '../components/games/AnagramGame';
+import WordBuildGame from '../components/games/WordBuildGame';
+
+type GameKey = 'menu' | 'anagram' | 'wordbuild';
+
+export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
+  const [active, setActive] = useState<GameKey>('menu');
+  const { words } = app.state;
+
+  if (words.length < 4) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">게임으로 복습</h1>
+        <EmptyState title="게임을 하려면 단어가 더 필요해요" description="단어장에 최소 4개 이상의 단어를 등록해주세요." />
+      </div>
+    );
+  }
+
+  if (active === 'anagram') {
+    return <AnagramGame app={app} pool={words} onExit={() => setActive('menu')} />;
+  }
+  if (active === 'wordbuild') {
+    return <WordBuildGame app={app} pool={words} onExit={() => setActive('menu')} />;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">게임으로 복습</h1>
+      <p className="text-sm text-slate-500">게임에서 틀린 단어는 복습 우선순위가 올라가요.</p>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
+            <Icon name="game" className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-slate-800 dark:text-slate-100">애너그램 게임</p>
+            <p className="mt-0.5 text-xs text-slate-400">섞인 철자를 보고 원래 단어를 맞춰보세요.</p>
+          </div>
+        </div>
+        <Button className="mt-3 w-full" onClick={() => setActive('anagram')}>
+          시작하기
+        </Button>
+      </Card>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+            <Icon name="clock" className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-slate-800 dark:text-slate-100">단어 조합 게임</p>
+            <p className="mt-0.5 text-xs text-slate-400">주어진 알파벳으로 제한시간 내에 단어장 속 단어를 찾아보세요.</p>
+          </div>
+        </div>
+        <Button className="mt-3 w-full" onClick={() => setActive('wordbuild')}>
+          시작하기
+        </Button>
+      </Card>
+    </div>
+  );
+}
