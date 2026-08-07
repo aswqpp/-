@@ -5,8 +5,9 @@ import { Card, EmptyState, Button } from '../components/ui';
 import { Icon } from '../components/Icon';
 import AnagramGame from '../components/games/AnagramGame';
 import WordBuildGame from '../components/games/WordBuildGame';
+import MatchGame from '../components/games/MatchGame';
 
-type GameKey = 'menu' | 'anagram' | 'wordbuild';
+type GameKey = 'menu' | 'anagram' | 'wordbuild' | 'match';
 
 export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const [active, setActive] = useState<GameKey>('menu');
@@ -26,6 +27,9 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
   }
   if (active === 'wordbuild') {
     return <WordBuildGame app={app} pool={words} onExit={() => setActive('menu')} />;
+  }
+  if (active === 'match') {
+    return <MatchGame app={app} pool={words} onExit={() => setActive('menu')} />;
   }
 
   return (
@@ -59,6 +63,21 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
           </div>
         </div>
         <Button className="mt-3 w-full" onClick={() => setActive('wordbuild')}>
+          시작하기
+        </Button>
+      </Card>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+            <Icon name="grid" className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-slate-800 dark:text-slate-100">카드 짝맞추기 게임</p>
+            <p className="mt-0.5 text-xs text-slate-400">단어 카드와 뜻 카드의 짝을 맞춰보세요. 걸린 시간과 시도 횟수가 기록돼요.</p>
+          </div>
+        </div>
+        <Button className="mt-3 w-full" onClick={() => setActive('match')}>
           시작하기
         </Button>
       </Card>

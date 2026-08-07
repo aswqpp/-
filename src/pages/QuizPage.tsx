@@ -1,19 +1,39 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { QuizType, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
-import { buildQuiz, normalizeSpelling, shuffleArray, type QuizQuestion } from '../lib/quiz';
+import {
+  buildQuiz,
+  normalizeSpelling,
+  shuffleArray,
+  answerField,
+  promptField,
+  type QuizQuestion,
+  type McDirection,
+} from '../lib/quiz';
 
 type Phase = 'setup' | 'active' | 'done';
 
 const QUIZ_TYPE_LABEL: Record<QuizType, string> = {
-  'multiple-choice': '객관식 (뜻 고르기)',
+  'multiple-choice': '객관식 암기 모드',
   spelling: '스펠링 입력',
   listening: '듣고 뜻 맞추기',
 };
+
+const OPTION_COUNTS = [3, 4, 5];
+
+function correctAnswerFor(q: QuizQuestion): string {
+  if (q.type === 'listening') return q.word.meaning;
+  if (q.type === 'multiple-choice') return answerField(q.word, q.direction ?? 'word-to-meaning');
+  return q.word.word;
+}
+
+function promptFor(q: QuizQuestion): string {
+  return promptField(q.word, q.direction ?? 'word-to-meaning');
+}
 
 export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const { words } = app.state;
@@ -29,6 +49,8 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const [answered, setAnswered] = useState(false);
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
+  const [mcDirection, setMcDirection] = useState<McDirection>('word-to-meaning');
+  const [mcOptionCount, setMcOptionCount] = useState(4);
 
   function toggleType(t: QuizType) {
     setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -37,7 +59,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function start(pool: typeof words) {
     if (pool.length === 0 || selectedTypes.length === 0) return;
     const list = shuffleArray(pool).slice(0, Math.min(10, pool.length));
-    setQuestions(buildQuiz(list, words, selectedTypes));
+    setQuestions(buildQuiz(list, words, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
     setCorrect(0);
     setWrong(0);
@@ -79,7 +101,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function chooseOption(opt: string) {
     if (answered) return;
     setSelectedOption(opt);
-    submitAnswer(opt === current.word.meaning);
+    submitAnswer(opt === correctAnswerFor(current));
   }
 
   if (phase === 'setup') {
@@ -109,6 +131,32 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
                   </label>
                 ))}
               </div>
+
+              {selectedTypes.includes('multiple-choice') && (
+                <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold text-slate-500">객관식 방향</p>
+                    <div className="flex gap-2">
+                      <PillButton active={mcDirection === 'word-to-meaning'} onClick={() => setMcDirection('word-to-meaning')}>
+                        단어 → 뜻
+                      </PillButton>
+                      <PillButton active={mcDirection === 'meaning-to-word'} onClick={() => setMcDirection('meaning-to-word')}>
+                        뜻 → 단어
+                      </PillButton>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold text-slate-500">선택지 개수</p>
+                    <div className="flex gap-2">
+                      {OPTION_COUNTS.map((n) => (
+                        <PillButton key={n} active={mcOptionCount === n} onClick={() => setMcOptionCount(n)}>
+                          {n}개
+                        </PillButton>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
 
             <Card>
@@ -180,8 +228,21 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
           </div>
         )}
 
-        {current.type !== 'listening' && current.type !== 'spelling' && (
-          <p className="mt-4 text-center text-2xl font-bold text-slate-800 dark:text-slate-100">{current.word.word}</p>
+        {current.type === 'multiple-choice' && (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <p className="text-center text-2xl font-bold text-slate-800 dark:text-slate-100">{promptFor(current)}</p>
+            {current.direction === 'word-to-meaning' && current.word.phonetic && (
+              <p className="text-xs text-slate-400">{current.word.phonetic}</p>
+            )}
+            {current.direction === 'word-to-meaning' && supported && (
+              <button
+                onClick={() => speak(current.word.word)}
+                className="grid h-9 w-9 place-items-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400"
+              >
+                <Icon name="speaker" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         )}
 
         {current.type === 'spelling' && (
@@ -195,7 +256,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
           {(current.type === 'multiple-choice' || current.type === 'listening') && current.options && (
             <div className="flex flex-col gap-2">
               {current.options.map((opt) => {
-                const isCorrectOpt = opt === current.word.meaning;
+                const isCorrectOpt = opt === correctAnswerFor(current);
                 const isSelected = opt === selectedOption;
                 let style = 'border-slate-200 dark:border-slate-700';
                 if (answered && isCorrectOpt) style = 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950';
@@ -248,5 +309,21 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
         )}
       </Card>
     </div>
+  );
+}
+
+function PillButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? 'border-indigo-500 bg-indigo-600 text-white'
+          : 'border-slate-200 text-slate-500 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-400'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
