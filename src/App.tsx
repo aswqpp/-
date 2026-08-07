@@ -22,8 +22,14 @@ const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
 export default function App() {
   const app = useAppState();
   const [screen, setScreen] = useState<Screen>('home');
+  const [pendingStudyIds, setPendingStudyIds] = useState<string[] | null>(null);
 
   const dueCount = useMemo(() => getDueWords(app.state.words).length, [app.state.words]);
+
+  function startFocusedReview(wordIds: string[]) {
+    setPendingStudyIds(wordIds);
+    setScreen('study');
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -79,10 +85,17 @@ export default function App() {
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-4 sm:pb-8">
         {screen === 'home' && <HomePage app={app} dueCount={dueCount} onNavigate={setScreen} />}
         {screen === 'words' && <WordsPage app={app} />}
-        {screen === 'study' && <StudyPage app={app} onNavigate={setScreen} />}
+        {screen === 'study' && (
+          <StudyPage
+            app={app}
+            onNavigate={setScreen}
+            pendingWordIds={pendingStudyIds}
+            onConsumePending={() => setPendingStudyIds(null)}
+          />
+        )}
         {screen === 'quiz' && <QuizPage app={app} onNavigate={setScreen} />}
         {screen === 'games' && <GamesPage app={app} onNavigate={setScreen} />}
-        {screen === 'stats' && <StatsPage app={app} />}
+        {screen === 'stats' && <StatsPage app={app} onStartReview={startFocusedReview} />}
       </main>
     </div>
   );

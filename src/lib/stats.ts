@@ -1,4 +1,4 @@
-import type { StudyLogEntry } from '../types';
+import type { StudyLogEntry, Word } from '../types';
 import { addDays, todayIso } from './srs';
 
 export function getTodayEntry(log: StudyLogEntry[]): StudyLogEntry | undefined {
@@ -26,9 +26,10 @@ export function computeStreak(log: StudyLogEntry[]): number {
   return streak;
 }
 
-export function last7Days(log: StudyLogEntry[]): StudyLogEntry[] {
+/** Returns the last `n` days (oldest first, today last) with log data filled in for missing days. */
+export function lastNDays(log: StudyLogEntry[], n: number): StudyLogEntry[] {
   const days: StudyLogEntry[] = [];
-  for (let i = 6; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     const date = addDays(todayIso(), -i);
     const found = log.find((l) => l.date === date);
     days.push(found ?? { date, studiedCount: 0, correctCount: 0, wrongCount: 0 });
@@ -41,4 +42,85 @@ export function overallAccuracy(log: StudyLogEntry[]): number {
   const totalWrong = log.reduce((sum, l) => sum + l.wrongCount, 0);
   const total = totalCorrect + totalWrong;
   return total === 0 ? 0 : Math.round((totalCorrect / total) * 100);
+}
+
+/** A word counts as mastered once it has a solid consecutive streak and a review interval of 3+ weeks. */
+export function isMastered(word: Word): boolean {
+  return word.srs.repetitions >= 3 && word.srs.interval >= 21;
+}
+
+export interface CategoryMastery {
+  category: string;
+  total: number;
+  mastered: number;
+  pct: number;
+}
+
+export function categoryMastery(words: Word[]): CategoryMastery[] {
+  const map = new Map<string, Word[]>();
+  for (const w of words) {
+    const key = w.category.trim() || '미분류';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(w);
+  }
+  return Array.from(map.entries())
+    .map(([category, list]) => {
+      const mastered = list.filter(isMastered).length;
+      return { category, total: list.length, mastered, pct: list.length ? Math.round((mastered / list.length) * 100) : 0 };
+    })
+    .sort((a, b) => b.total - a.total);
+}
+
+export interface DifficultyDistribution {
+  easy: number;
+  medium: number;
+  hard: number;
+  total: number;
+}
+
+export function difficultyDistribution(words: Word[]): DifficultyDistribution {
+  const dist = { easy: 0, medium: 0, hard: 0, total: words.length };
+  for (const w of words) dist[w.difficulty]++;
+  return dist;
+}
+
+export interface WeakWord {
+  word: Word;
+  attempts: number;
+  wrongRate: number;
+}
+
+/** Top N words by wrong rate, among words that have been reviewed at least once. */
+export function weakWords(words: Word[], topN: number): WeakWord[] {
+  return words
+    .map((word) => {
+      const attempts = word.srs.correctCount + word.srs.wrongCount;
+      return { word, attempts, wrongRate: attempts > 0 ? word.srs.wrongCount / attempts : 0 };
+    })
+    .filter((w) => w.attempts > 0 && w.wrongRate > 0)
+    .sort((a, b) => b.wrongRate - a.wrongRate || b.attempts - a.attempts)
+    .slice(0, topN);
+}
+
+export interface ReviewForecastDay {
+  date: string;
+  count: number;
+}
+
+export interface ReviewForecast {
+  todayCount: number;
+  weekCount: number;
+  perDay: ReviewForecastDay[];
+}
+
+/** Counts words due on each of the next 7 days (today + 6 more), based on current SRS due dates. */
+export function reviewForecast(words: Word[]): ReviewForecast {
+  const perDay: ReviewForecastDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(todayIso(), i);
+    const count = words.filter((w) => w.srs.dueDate === date || (i === 0 && w.srs.dueDate < date)).length;
+    perDay.push({ date, count });
+  }
+  const weekCount = words.filter((w) => w.srs.dueDate <= addDays(todayIso(), 6)).length;
+  return { todayCount: perDay[0].count, weekCount, perDay };
 }

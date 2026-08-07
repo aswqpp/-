@@ -1,99 +1,139 @@
 import { useMemo } from 'react';
 import type { UseAppState } from '../hooks/useAppState';
-import { Card, Badge } from '../components/ui';
+import { Card, Badge, Button } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { computeStreak, last7Days, overallAccuracy } from '../lib/stats';
-import { WeeklyBarChart } from '../components/WeeklyBarChart';
+import {
+  computeStreak,
+  overallAccuracy,
+  getTodayEntry,
+  categoryMastery,
+  difficultyDistribution,
+  weakWords,
+  reviewForecast,
+} from '../lib/stats';
+import { StudyHeatmap } from '../components/StudyHeatmap';
+import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
+import { CategoryMasteryBars } from '../components/CategoryMasteryBars';
+import { DifficultyDonut } from '../components/DifficultyDonut';
 
-export default function StatsPage({ app }: { app: UseAppState }) {
+const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
+const WEAK_WORDS_TOP_N = 5;
+
+export default function StatsPage({ app, onStartReview }: { app: UseAppState; onStartReview: (wordIds: string[]) => void }) {
   const { words, log } = app.state;
   const streak = computeStreak(log);
-  const weekly = useMemo(() => last7Days(log), [log]);
   const accuracy = overallAccuracy(log);
+  const todayStudied = getTodayEntry(log)?.studiedCount ?? 0;
 
-  const totalStudied = log.reduce((sum, l) => sum + l.studiedCount, 0);
-
-  const mastery = useMemo(() => {
-    let mastered = 0;
-    let learning = 0;
-    let untouched = 0;
-    for (const w of words) {
-      if (w.srs.repetitions === 0 && w.srs.correctCount === 0 && w.srs.wrongCount === 0) untouched++;
-      else if (w.srs.repetitions >= 3 && w.srs.interval >= 21) mastered++;
-      else learning++;
-    }
-    return { mastered, learning, untouched, total: words.length };
-  }, [words]);
+  const catMastery = useMemo(() => categoryMastery(words), [words]);
+  const diffDist = useMemo(() => difficultyDistribution(words), [words]);
+  const weak = useMemo(() => weakWords(words, WEAK_WORDS_TOP_N), [words]);
+  const forecast = useMemo(() => reviewForecast(words), [words]);
+  const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">학습 통계</h1>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-50 text-orange-500 dark:bg-orange-950">
-            <Icon name="flame" className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{streak}일</p>
-            <p className="text-xs text-slate-400">연속 학습</p>
-          </div>
+      <div className="grid grid-cols-3 gap-2.5">
+        <Card padding="p-3" className="flex flex-col items-center text-center">
+          <Icon name="flame" className="h-5 w-5 text-orange-500" />
+          <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{streak}일</p>
+          <p className="text-[11px] text-slate-400">연속 학습</p>
         </Card>
-        <Card className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-950">
-            <Icon name="check" className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{accuracy}%</p>
-            <p className="text-xs text-slate-400">전체 정답률</p>
-          </div>
+        <Card padding="p-3" className="flex flex-col items-center text-center">
+          <Icon name="cards" className="h-5 w-5 text-indigo-500" />
+          <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{todayStudied}</p>
+          <p className="text-[11px] text-slate-400">오늘 학습 단어</p>
+        </Card>
+        <Card padding="p-3" className="flex flex-col items-center text-center">
+          <Icon name="check" className="h-5 w-5 text-emerald-500" />
+          <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{accuracy}%</p>
+          <p className="text-[11px] text-slate-400">전체 정답률</p>
         </Card>
       </div>
 
       <Card>
-        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">최근 7일 학습 추이</p>
-        <p className="mb-3 text-xs text-slate-400">누적 {totalStudied}개 단어 학습</p>
-        <WeeklyBarChart data={weekly} />
+        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">날짜별 학습량</p>
+        <StudyHeatmap log={log} />
       </Card>
 
       <Card>
-        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">단어 숙련도 ({mastery.total}개)</p>
-        <div className="flex flex-col gap-2.5">
-          <MasteryRow label="마스터" tone="green" count={mastery.mastered} total={mastery.total} />
-          <MasteryRow label="학습 중" tone="amber" count={mastery.learning} total={mastery.total} />
-          <MasteryRow label="미학습" tone="slate" count={mastery.untouched} total={mastery.total} />
+        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">정답률 추이</p>
+        <AccuracyTrendChart log={log} />
+      </Card>
+
+      <Card>
+        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">카테고리별 숙련도</p>
+        <CategoryMasteryBars data={catMastery} />
+      </Card>
+
+      <Card>
+        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
+        <DifficultyDonut data={diffDist} />
+      </Card>
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">취약 단어 Top {WEAK_WORDS_TOP_N}</p>
+          {weak.length > 0 && (
+            <button
+              onClick={() => onStartReview(weak.map((w) => w.word.id))}
+              className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              전체 복습하기
+            </button>
+          )}
+        </div>
+        {weak.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-400">아직 오답 데이터가 없어요.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {weak.map((w) => (
+              <div key={w.word.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{w.word.word}</p>
+                  <p className="truncate text-xs text-slate-400">{w.word.meaning}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone="rose">오답률 {Math.round(w.wrongRate * 100)}%</Badge>
+                  <Button variant="secondary" className="px-2.5 py-1.5 text-xs" onClick={() => onStartReview([w.word.id])}>
+                    복습
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">복습 예정</p>
+        <p className="mb-3 text-xs text-slate-400">
+          오늘 <span className="font-bold text-indigo-600 dark:text-indigo-400">{forecast.todayCount}개</span> · 이번 주{' '}
+          <span className="font-bold text-indigo-600 dark:text-indigo-400">{forecast.weekCount}개</span> 복습 예정이에요.
+        </p>
+        <div className="flex items-end gap-2">
+          {forecast.perDay.map((d, i) => {
+            const h = Math.max(3, Math.round((d.count / forecastMax) * 36));
+            const dow = new Date(d.date + 'T00:00:00').getDay();
+            return (
+              <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                <span className="text-[10px] font-semibold text-slate-500">{d.count}</span>
+                <div className="flex h-9 w-full items-end">
+                  <div
+                    className={`w-full rounded-t ${i === 0 ? 'bg-indigo-500' : 'bg-indigo-200 dark:bg-indigo-900'}`}
+                    style={{ height: h }}
+                  />
+                </div>
+                <span className={`text-[10px] ${i === 0 ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                  {i === 0 ? '오늘' : DAY_LABEL[dow]}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </Card>
-    </div>
-  );
-}
-
-function MasteryRow({
-  label,
-  tone,
-  count,
-  total,
-}: {
-  label: string;
-  tone: 'green' | 'amber' | 'slate';
-  count: number;
-  total: number;
-}) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  const barTone: Record<string, string> = {
-    green: 'bg-emerald-500',
-    amber: 'bg-amber-500',
-    slate: 'bg-slate-400',
-  };
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <Badge tone={tone}>{label}</Badge>
-        <span className="font-semibold text-slate-500">{count}개 ({pct}%)</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        <div className={`h-full rounded-full ${barTone[tone]}`} style={{ width: `${pct}%` }} />
-      </div>
     </div>
   );
 }

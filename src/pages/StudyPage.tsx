@@ -1,14 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Difficulty, Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Button, Card, EmptyState, ProgressBar, DifficultyCycleBadge, FavoriteStarButton } from '../components/ui';
+import { Button, Card, EmptyState, ProgressBar, DifficultyCycleBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
 
 type Phase = 'setup' | 'active' | 'done';
 
-export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
+export default function StudyPage({
+  app,
+  onNavigate,
+  pendingWordIds,
+  onConsumePending,
+}: {
+  app: UseAppState;
+  onNavigate: (s: Screen) => void;
+  pendingWordIds?: string[] | null;
+  onConsumePending?: () => void;
+}) {
   const { words } = app.state;
   const { speak, supported } = useTts();
 
@@ -21,6 +31,7 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
   const [frontIsWord, setFrontIsWord] = useState(app.state.settings.flashcardFrontIsWord);
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
+  const [focusedReview, setFocusedReview] = useState(false);
 
   const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
 
@@ -35,15 +46,25 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
   );
   const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
-  function start(list: Word[]) {
+  function start(list: Word[], focused = false) {
     if (list.length === 0) return;
     setQueue(list);
     setIndex(0);
     setFlipped(false);
     setCorrect(0);
     setWrong(0);
+    setFocusedReview(focused);
     setPhase('active');
   }
+
+  useEffect(() => {
+    if (!pendingWordIds || pendingWordIds.length === 0) return;
+    const idSet = new Set(pendingWordIds);
+    const targeted = words.filter((w) => idSet.has(w.id));
+    onConsumePending?.();
+    start(targeted, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingWordIds]);
 
   function grade(know: boolean) {
     const word = queue[index];
@@ -167,6 +188,12 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
         </p>
       </div>
       <ProgressBar value={index} max={queue.length} />
+
+      {focusedReview && (
+        <div className="flex justify-center">
+          <Badge tone="rose">취약 단어 집중 복습</Badge>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-2">
         <FavoriteStarButton active={word.favorite} onToggle={() => app.updateWord(word.id, { favorite: !word.favorite })} className="h-5 w-5" />

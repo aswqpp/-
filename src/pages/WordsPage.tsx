@@ -30,7 +30,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
       map.get(key)!.push(w);
     }
     return Array.from(map.entries())
-      .map(([name, list]) => ({ name, count: list.length, dueCount: list.filter((w) => isDue(w)).length }))
+      .map(([name, list]) => ({ name, count: list.length }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }, [words]);
 
@@ -124,16 +124,11 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                 <button
                   key={f.name}
                   onClick={() => setSelectedFolder(f.name)}
-                  className="relative flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900"
+                  className="flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900"
                 >
                   <Icon name="folder" className="h-6 w-6 text-slate-400" />
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{f.name}</span>
                   <span className="text-xs text-slate-400">{f.count}개</span>
-                  {f.dueCount > 0 && (
-                    <span className="absolute right-3 top-3 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                      {f.dueCount}
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
