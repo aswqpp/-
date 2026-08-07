@@ -1,13 +1,28 @@
 import type { SrsData, Word } from '../types';
 
+/**
+ * Formats a Date as yyyy-mm-dd using its LOCAL calendar fields.
+ *
+ * Never use `toISOString().slice(0, 10)` for this: that converts to UTC first,
+ * so for any user east of UTC a local midnight lands on the previous UTC day.
+ * Mixing a UTC-derived "today" with a locally-parsed date made `addDays(today, 1)`
+ * return `today` in UTC+9, which spun date-walking loops forever.
+ */
+function toLocalIso(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalIso(new Date());
 }
 
 export function addDays(dateIso: string, days: number): string {
   const d = new Date(dateIso + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toLocalIso(d);
 }
 
 export function createInitialSrs(): SrsData {

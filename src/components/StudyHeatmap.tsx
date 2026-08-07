@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { StudyLogEntry } from '../types';
 import { addDays, todayIso } from '../lib/srs';
 
@@ -14,19 +15,24 @@ interface HeatCell {
   future: boolean;
 }
 
+const TOTAL_DAYS = NUM_WEEKS * 7;
+
 function buildWeeks(log: StudyLogEntry[]): HeatCell[][] {
   const today = todayIso();
   const todayDow = new Date(today + 'T00:00:00').getDay();
   const end = addDays(today, 6 - todayDow);
-  const start = addDays(end, -(NUM_WEEKS * 7 - 1));
-  const logMap = new Map(log.map((l) => [l.date, l]));
+  const start = addDays(end, -(TOTAL_DAYS - 1));
+  const logMap = new Map(log.map((l) => [l.date, l.studiedCount]));
 
+  // Bounded by a fixed count rather than `while (cursor <= end)`: a date helper
+  // that fails to advance must not be able to hang the tab.
   const days: HeatCell[] = [];
   let cursor = start;
-  while (cursor <= end) {
-    days.push({ date: cursor, count: logMap.get(cursor)?.studiedCount ?? 0, future: cursor > today });
+  for (let i = 0; i < TOTAL_DAYS; i++) {
+    days.push({ date: cursor, count: logMap.get(cursor) ?? 0, future: cursor > today });
     cursor = addDays(cursor, 1);
   }
+
   const weeks: HeatCell[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
   return weeks;
@@ -49,20 +55,22 @@ const LEVEL_CLASS = [
 ];
 
 export function StudyHeatmap({ log }: { log: StudyLogEntry[] }) {
-  const weeks = buildWeeks(log);
+  const { weeks, monthTicks } = useMemo(() => {
+    const built = buildWeeks(log);
+    const ticks: { weekIndex: number; label: string }[] = [];
+    let lastMonth = -1;
+    built.forEach((week, i) => {
+      const month = new Date(week[0].date + 'T00:00:00').getMonth();
+      if (month !== lastMonth) {
+        ticks.push({ weekIndex: i, label: MONTH_LABELS[month] });
+        lastMonth = month;
+      }
+    });
+    return { weeks: built, monthTicks: ticks };
+  }, [log]);
+
   const width = weeks.length * (CELL + GAP);
   const height = 7 * (CELL + GAP);
-
-  const monthTicks: { weekIndex: number; label: string }[] = [];
-  let lastMonth = -1;
-  weeks.forEach((week, i) => {
-    const firstOfWeek = week[0];
-    const month = new Date(firstOfWeek.date + 'T00:00:00').getMonth();
-    if (month !== lastMonth) {
-      monthTicks.push({ weekIndex: i, label: MONTH_LABELS[month] });
-      lastMonth = month;
-    }
-  });
 
   return (
     <div className="flex flex-col gap-2">

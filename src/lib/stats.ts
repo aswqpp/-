@@ -28,11 +28,12 @@ export function computeStreak(log: StudyLogEntry[]): number {
 
 /** Returns the last `n` days (oldest first, today last) with log data filled in for missing days. */
 export function lastNDays(log: StudyLogEntry[], n: number): StudyLogEntry[] {
+  const byDate = new Map(log.map((l) => [l.date, l]));
+  const today = todayIso();
   const days: StudyLogEntry[] = [];
   for (let i = n - 1; i >= 0; i--) {
-    const date = addDays(todayIso(), -i);
-    const found = log.find((l) => l.date === date);
-    days.push(found ?? { date, studiedCount: 0, correctCount: 0, wrongCount: 0 });
+    const date = addDays(today, -i);
+    days.push(byDate.get(date) ?? { date, studiedCount: 0, correctCount: 0, wrongCount: 0 });
   }
   return days;
 }
@@ -113,14 +114,34 @@ export interface ReviewForecast {
   perDay: ReviewForecastDay[];
 }
 
-/** Counts words due on each of the next 7 days (today + 6 more), based on current SRS due dates. */
+/**
+ * Counts words due on each of the next 7 days (today + 6 more), based on current SRS due dates.
+ * Anything already overdue rolls into today's bucket.
+ */
 export function reviewForecast(words: Word[]): ReviewForecast {
+  const today = todayIso();
   const perDay: ReviewForecastDay[] = [];
+  const indexByDate = new Map<string, number>();
   for (let i = 0; i < 7; i++) {
-    const date = addDays(todayIso(), i);
-    const count = words.filter((w) => w.srs.dueDate === date || (i === 0 && w.srs.dueDate < date)).length;
-    perDay.push({ date, count });
+    const date = addDays(today, i);
+    indexByDate.set(date, i);
+    perDay.push({ date, count: 0 });
   }
-  const weekCount = words.filter((w) => w.srs.dueDate <= addDays(todayIso(), 6)).length;
+
+  let weekCount = 0;
+  for (const w of words) {
+    const due = w.srs.dueDate;
+    if (due <= today) {
+      perDay[0].count++;
+      weekCount++;
+      continue;
+    }
+    const idx = indexByDate.get(due);
+    if (idx !== undefined) {
+      perDay[idx].count++;
+      weekCount++;
+    }
+  }
+
   return { todayCount: perDay[0].count, weekCount, perDay };
 }
