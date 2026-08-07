@@ -20,12 +20,15 @@ export interface Word {
   id: string;
   word: string;
   phonetic: string;
+  /** e.g. "동사", "명사" — set when the word was split out of a multi-part-of-speech dictionary entry */
+  partOfSpeech?: string;
   meaning: string;
   example: string;
   exampleTranslation?: string;
   category: string;
   difficulty: Difficulty;
   examType: ExamType;
+  favorite: boolean;
   createdAt: string;
   srs: SrsData;
 }

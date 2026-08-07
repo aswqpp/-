@@ -35,7 +35,7 @@ export default function App() {
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white dark:bg-indigo-500">
             <Icon name="cards" className="h-5 w-5" />
           </span>
-          VocaLoop
+          ASWQPP
         </button>
         <button
           aria-label="다크모드 전환"

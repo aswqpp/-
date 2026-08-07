@@ -120,6 +120,7 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
       category: r.category,
       difficulty: r.difficulty,
       examType: r.examType,
+      favorite: false,
     }));
     const { added, skippedDuplicates } = app.addWordsBulk(rowsToAdd, { skipDuplicates });
     setResult({ added, skippedDuplicates, invalid: invalidCount });

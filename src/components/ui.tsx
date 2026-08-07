@@ -1,4 +1,6 @@
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
+import type { Difficulty } from '../types';
+import { Icon } from './Icon';
 
 export function Card({
   children,
@@ -81,5 +83,66 @@ export function Badge({ children, tone = 'slate' }: PropsWithChildren<{ tone?: '
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${tones[tone]}`}>
       {children}
     </span>
+  );
+}
+
+const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: '쉬움', medium: '보통', hard: '어려움' };
+
+const DIFFICULTY_BUTTON_TONE: Record<Difficulty, string> = {
+  easy: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
+  medium: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
+  hard: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300',
+};
+
+/** Tap-to-cycle difficulty control (easy → medium → hard → easy), replacing the old dropdown. */
+export function DifficultyCycleBadge({
+  value,
+  onChange,
+  className = '',
+}: {
+  value: Difficulty;
+  onChange: (next: Difficulty) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title="탭해서 난이도 변경"
+      onClick={(e) => {
+        e.stopPropagation();
+        const idx = DIFFICULTY_ORDER.indexOf(value);
+        onChange(DIFFICULTY_ORDER[(idx + 1) % DIFFICULTY_ORDER.length]);
+      }}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition active:scale-95 ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
+    >
+      {DIFFICULTY_LABEL[value]}
+    </button>
+  );
+}
+
+export function FavoriteStarButton({
+  active,
+  onToggle,
+  className = '',
+}: {
+  active: boolean;
+  onToggle: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={active ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={`grid place-items-center rounded-full transition active:scale-90 ${
+        active ? 'text-amber-400' : 'text-slate-300 hover:text-amber-300 dark:text-slate-600'
+      } ${className}`}
+    >
+      <Icon name="star" className="h-full w-full" fill={active ? 'currentColor' : 'none'} />
+    </button>
   );
 }

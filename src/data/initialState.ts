@@ -11,6 +11,7 @@ export function buildInitialState(): AppState {
   const words: Word[] = seedWords.map((sw) => ({
     id: genId(),
     ...sw,
+    favorite: false,
     createdAt: new Date().toISOString(),
     srs: createInitialSrs(),
   }));

@@ -20,7 +20,10 @@ export type IconName =
   | 'chevron-right'
   | 'refresh'
   | 'clock'
-  | 'grid';
+  | 'grid'
+  | 'search'
+  | 'star'
+  | 'folder';
 
 const paths: Record<IconName, ReactElement> = {
   home: <path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />,
@@ -82,6 +85,18 @@ const paths: Record<IconName, ReactElement> = {
       <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
       <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
     </>
+  ),
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m20 20-4.8-4.8" />
+    </>
+  ),
+  star: (
+    <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9L12 17l-5.2 2.8 1-5.9-4.3-4.2 5.9-.8L12 3.5Z" />
+  ),
+  folder: (
+    <path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17V6.5Z" />
   ),
 };
 

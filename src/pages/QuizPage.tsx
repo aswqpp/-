@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import type { QuizType, Screen } from '../types';
+import type { Difficulty, QuizType, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Button, Card, EmptyState, ProgressBar, Badge } from '../components/ui';
+import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyCycleBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
@@ -37,8 +37,21 @@ function promptFor(q: QuizQuestion): string {
 
 export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const { words } = app.state;
-  const dueWords = useMemo(() => getDueWords(words), [words]);
   const { speak, supported } = useTts();
+
+  const [category, setCategory] = useState('all');
+  const [difficulty, setDifficulty] = useState<Difficulty | 'all'>('all');
+  const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
+  const scopedWords = useMemo(
+    () =>
+      words.filter((w) => {
+        if (category !== 'all' && (w.category || '미분류') !== category) return false;
+        if (difficulty !== 'all' && w.difficulty !== difficulty) return false;
+        return true;
+      }),
+    [words, category, difficulty]
+  );
+  const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice', 'listening']);
@@ -59,7 +72,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function start(pool: typeof words) {
     if (pool.length === 0 || selectedTypes.length === 0) return;
     const list = shuffleArray(pool).slice(0, Math.min(10, pool.length));
-    setQuestions(buildQuiz(list, words, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
+    setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
     setCorrect(0);
     setWrong(0);
@@ -114,6 +127,26 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
         ) : (
           <>
             <Card>
+              <p className="mb-2 text-xs font-semibold text-slate-500">출제 범위 좁히기</p>
+              <div className="flex gap-2">
+                <select className="input flex-1" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value="all">전체 카테고리</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <select className="input flex-1" value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty | 'all')}>
+                  <option value="all">전체 난이도</option>
+                  <option value="easy">쉬움</option>
+                  <option value="medium">보통</option>
+                  <option value="hard">어려움</option>
+                </select>
+              </div>
+            </Card>
+
+            <Card>
               <p className="mb-2 text-sm font-semibold text-slate-600 dark:text-slate-300">퀴즈 유형 선택</p>
               <div className="flex flex-col gap-2">
                 {(Object.keys(QUIZ_TYPE_LABEL) as QuizType[]).map((t) => (
@@ -166,8 +199,8 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
               </Button>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">전체 단어에서 무작위 출제</p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={() => start(words)} disabled={selectedTypes.length === 0}>
+              <p className="text-sm text-slate-500">범위 내 무작위 출제 ({scopedWords.length}개)</p>
+              <Button variant="secondary" className="mt-3 w-full" onClick={() => start(scopedWords)} disabled={scopedWords.length === 0 || selectedTypes.length === 0}>
                 무작위 퀴즈 시작
               </Button>
             </Card>
@@ -201,6 +234,8 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
     );
   }
 
+  const liveWord = words.find((w) => w.id === current.word.id) ?? current.word;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -214,7 +249,13 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
       <ProgressBar value={index} max={questions.length} />
 
       <Card>
-        <Badge tone="indigo">{QUIZ_TYPE_LABEL[current.type]}</Badge>
+        <div className="flex items-center justify-between">
+          <Badge tone="indigo">{QUIZ_TYPE_LABEL[current.type]}</Badge>
+          <div className="flex items-center gap-2">
+            <DifficultyCycleBadge value={liveWord.difficulty} onChange={(d) => app.updateWord(liveWord.id, { difficulty: d })} />
+            <FavoriteStarButton active={liveWord.favorite} onToggle={() => app.updateWord(liveWord.id, { favorite: !liveWord.favorite })} className="h-4 w-4" />
+          </div>
+        </div>
 
         {current.type === 'listening' && (
           <div className="mt-4 flex flex-col items-center gap-2">

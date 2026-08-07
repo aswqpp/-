@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { Screen, Word } from '../types';
+import type { Difficulty, Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Button, Card, EmptyState, ProgressBar } from '../components/ui';
+import { Button, Card, EmptyState, ProgressBar, DifficultyCycleBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
@@ -10,9 +10,10 @@ type Phase = 'setup' | 'active' | 'done';
 
 export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const { words } = app.state;
-  const dueWords = useMemo(() => getDueWords(words), [words]);
   const { speak, supported } = useTts();
 
+  const [category, setCategory] = useState('all');
+  const [difficulty, setDifficulty] = useState<Difficulty | 'all'>('all');
   const [phase, setPhase] = useState<Phase>('setup');
   const [queue, setQueue] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
@@ -20,6 +21,19 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
   const [frontIsWord, setFrontIsWord] = useState(app.state.settings.flashcardFrontIsWord);
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
+
+  const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
+
+  const scopedWords = useMemo(
+    () =>
+      words.filter((w) => {
+        if (category !== 'all' && (w.category || '미분류') !== category) return false;
+        if (difficulty !== 'all' && w.difficulty !== difficulty) return false;
+        return true;
+      }),
+    [words, category, difficulty]
+  );
+  const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   function start(list: Word[]) {
     if (list.length === 0) return;
@@ -57,6 +71,26 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
         ) : (
           <>
             <Card>
+              <p className="mb-2 text-xs font-semibold text-slate-500">학습 범위 좁히기</p>
+              <div className="flex gap-2">
+                <select className="input flex-1" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value="all">전체 카테고리</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <select className="input flex-1" value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty | 'all')}>
+                  <option value="all">전체 난이도</option>
+                  <option value="easy">쉬움</option>
+                  <option value="medium">보통</option>
+                  <option value="hard">어려움</option>
+                </select>
+              </div>
+            </Card>
+
+            <Card>
               <p className="text-sm text-slate-500">오늘 복습할 단어</p>
               <p className="mt-1 text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">{dueWords.length}개</p>
               <Button className="mt-3 w-full" onClick={() => start(dueWords)} disabled={dueWords.length === 0}>
@@ -65,9 +99,9 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
             </Card>
 
             <Card>
-              <p className="text-sm text-slate-500">전체 단어로 자유 학습</p>
-              <p className="mt-1 text-xs text-slate-400">복습 예정과 상관없이 전체 {words.length}개 단어를 학습해요.</p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={() => start(shuffle(words))}>
+              <p className="text-sm text-slate-500">범위 내 전체 단어로 자유 학습</p>
+              <p className="mt-1 text-xs text-slate-400">복습 예정과 상관없이 {scopedWords.length}개 단어를 학습해요.</p>
+              <Button variant="secondary" className="mt-3 w-full" onClick={() => start(shuffle(scopedWords))} disabled={scopedWords.length === 0}>
                 자유 학습 시작
               </Button>
             </Card>
@@ -117,7 +151,8 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
     );
   }
 
-  const word = queue[index];
+  const queuedWord = queue[index];
+  const word = words.find((w) => w.id === queuedWord.id) ?? queuedWord;
   const frontText = frontIsWord ? word.word : word.meaning;
   const backText = frontIsWord ? word.meaning : word.word;
 
@@ -133,7 +168,12 @@ export default function StudyPage({ app, onNavigate }: { app: UseAppState; onNav
       </div>
       <ProgressBar value={index} max={queue.length} />
 
-      <div className="flip-scene mt-2">
+      <div className="flex items-center justify-center gap-2">
+        <FavoriteStarButton active={word.favorite} onToggle={() => app.updateWord(word.id, { favorite: !word.favorite })} className="h-5 w-5" />
+        <DifficultyCycleBadge value={word.difficulty} onChange={(d) => app.updateWord(word.id, { difficulty: d })} />
+      </div>
+
+      <div className="flip-scene mt-1">
         <div
           className={`flip-card relative h-72 w-full cursor-pointer select-none ${flipped ? 'flipped' : ''}`}
           onClick={() => setFlipped((f) => !f)}
