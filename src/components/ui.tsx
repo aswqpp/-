@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 import type { Difficulty } from '../types';
+import { DIFFICULTY_LABEL, DIFFICULTY_ORDER } from '../lib/difficulty';
 import { Icon } from './Icon';
 
 export function Card({
@@ -86,8 +87,41 @@ export function Badge({ children, tone = 'slate' }: PropsWithChildren<{ tone?: '
   );
 }
 
-const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard'];
-const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: '쉬움', medium: '보통', hard: '어려움' };
+type ChipTone = 'indigo' | 'amber' | 'rose' | 'green' | 'slate';
+
+const CHIP_ACTIVE: Record<ChipTone, string> = {
+  indigo: 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
+  amber: 'border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+  rose: 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400',
+  green: 'border-emerald-300 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400',
+  slate: 'border-slate-400 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200',
+};
+
+const CHIP_IDLE =
+  'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600';
+
+/** Toggleable filter chip. `count` renders a trailing match count when provided. */
+export function FilterChip({
+  active,
+  onToggle,
+  tone = 'indigo',
+  count,
+  children,
+}: PropsWithChildren<{ active: boolean; onToggle: () => void; tone?: ChipTone; count?: number }>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onToggle}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+        active ? CHIP_ACTIVE[tone] : CHIP_IDLE
+      }`}
+    >
+      {children}
+      {count !== undefined && <span className={active ? 'opacity-70' : 'opacity-50'}>{count}</span>}
+    </button>
+  );
+}
 
 const DIFFICULTY_BUTTON_TONE: Record<Difficulty, string> = {
   easy: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',

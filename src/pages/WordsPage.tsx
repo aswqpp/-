@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
-import type { Word } from '../types';
+import type { Difficulty, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Button, Card, EmptyState, Badge, DifficultyCycleBadge, FavoriteStarButton } from '../components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Badge,
+  DifficultyCycleBadge,
+  FavoriteStarButton,
+  FilterChip,
+} from '../components/ui';
+import { DIFFICULTY_LABEL, DIFFICULTY_ORDER } from '../lib/difficulty';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
@@ -17,6 +26,8 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   const [search, setSearch] = useState('');
   const [examType, setExamType] = useState('all');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [dueOnly, setDueOnly] = useState(false);
+  const [difficulties, setDifficulties] = useState<Difficulty[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Word | null>(null);
@@ -39,21 +50,56 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   const searching = search.trim() !== '';
   const scope: string | null = searching ? null : selectedFolder;
 
-  const filtered = useMemo(() => {
+  /** Words in the current folder/search scope, before the chip filters are applied. */
+  const scoped = useMemo(() => {
     return words.filter((w) => {
       if (scope !== null && scope !== ALL) {
         const key = w.category.trim() || UNCATEGORIZED;
         if (key !== scope) return false;
       }
-      if (examType !== 'all' && w.examType !== examType) return false;
-      if (favoritesOnly && !w.favorite) return false;
       if (searching) {
         const q = search.trim().toLowerCase();
         if (!w.word.toLowerCase().includes(q) && !w.meaning.includes(q)) return false;
       }
       return true;
     });
-  }, [words, scope, examType, favoritesOnly, search, searching]);
+  }, [words, scope, search, searching]);
+
+  const filtered = useMemo(() => {
+    return scoped.filter((w) => {
+      if (examType !== 'all' && w.examType !== examType) return false;
+      if (favoritesOnly && !w.favorite) return false;
+      if (dueOnly && !isDue(w)) return false;
+      if (difficulties.length > 0 && !difficulties.includes(w.difficulty)) return false;
+      return true;
+    });
+  }, [scoped, examType, favoritesOnly, dueOnly, difficulties]);
+
+  // Counts shown on the chips reflect the current scope, so they stay meaningful inside a folder.
+  const scopedCounts = useMemo(() => {
+    const byDifficulty = { easy: 0, medium: 0, hard: 0 } as Record<Difficulty, number>;
+    let due = 0;
+    let favorite = 0;
+    for (const w of scoped) {
+      byDifficulty[w.difficulty]++;
+      if (isDue(w)) due++;
+      if (w.favorite) favorite++;
+    }
+    return { byDifficulty, due, favorite };
+  }, [scoped]);
+
+  const filtersActive = favoritesOnly || dueOnly || difficulties.length > 0 || examType !== 'all';
+
+  function toggleDifficulty(d: Difficulty) {
+    setDifficulties((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  }
+
+  function resetFilters() {
+    setFavoritesOnly(false);
+    setDueOnly(false);
+    setDifficulties([]);
+    setExamType('all');
+  }
 
   const showingFolders = !searching && selectedFolder === null;
 
@@ -151,25 +197,46 @@ export default function WordsPage({ app }: { app: UseAppState }) {
             </h2>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <select className="input w-auto shrink-0" value={examType} onChange={(e) => setExamType(e.target.value)}>
-              <option value="all">전체 시험 종류</option>
-              {examTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="input w-auto shrink-0" value={examType} onChange={(e) => setExamType(e.target.value)}>
+                <option value="all">전체 시험 종류</option>
+                {examTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              {filtersActive && (
+                <button
+                  onClick={resetFilters}
+                  className="ml-auto flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  <Icon name="refresh" className="h-3.5 w-3.5" /> 필터 초기화
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={dueOnly} onToggle={() => setDueOnly((v) => !v)} tone="rose" count={scopedCounts.due}>
+                복습 필요
+              </FilterChip>
+              <FilterChip active={favoritesOnly} onToggle={() => setFavoritesOnly((v) => !v)} tone="amber" count={scopedCounts.favorite}>
+                <Icon name="star" className="h-3.5 w-3.5" fill={favoritesOnly ? 'currentColor' : 'none'} />
+                즐겨찾기
+              </FilterChip>
+              {DIFFICULTY_ORDER.map((d) => (
+                <FilterChip
+                  key={d}
+                  active={difficulties.includes(d)}
+                  onToggle={() => toggleDifficulty(d)}
+                  tone={d === 'easy' ? 'green' : d === 'medium' ? 'amber' : 'rose'}
+                  count={scopedCounts.byDifficulty[d]}
+                >
+                  {DIFFICULTY_LABEL[d]}
+                </FilterChip>
               ))}
-            </select>
-            <button
-              onClick={() => setFavoritesOnly((v) => !v)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition ${
-                favoritesOnly
-                  ? 'border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400'
-                  : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <Icon name="star" className="h-3.5 w-3.5" fill={favoritesOnly ? 'currentColor' : 'none'} /> 즐겨찾기만
-            </button>
+            </div>
           </div>
 
           {filtered.length === 0 ? (
