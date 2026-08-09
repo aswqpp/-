@@ -221,13 +221,33 @@ export default function StudyPage({
             )}
             <span className="mt-2 text-xs text-slate-300">탭하여 뒤집기</span>
           </div>
-          <div className="flip-face flip-face-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl border border-indigo-200 bg-indigo-50 p-6 text-center shadow-md dark:border-indigo-900 dark:bg-indigo-950">
+          <div className="flip-face flip-face-back absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto rounded-3xl border border-indigo-200 bg-indigo-50 p-6 text-center shadow-md dark:border-indigo-900 dark:bg-indigo-950">
             <span className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{backText}</span>
             {word.example && (
-              <div className="mt-2 space-y-1">
+              <div className="mt-1 space-y-1">
                 <p className="text-sm italic text-slate-500 dark:text-slate-400">"{word.example}"</p>
                 {word.exampleTranslation && <p className="text-xs text-slate-400">{word.exampleTranslation}</p>}
               </div>
+            )}
+            {(word.synonyms?.length || word.antonyms?.length) && (
+              <div className="mt-1 space-y-0.5 text-[11px]">
+                {word.synonyms?.length ? (
+                  <p className="text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">동의어</span> {word.synonyms.slice(0, 4).join(', ')}
+                  </p>
+                ) : null}
+                {word.antonyms?.length ? (
+                  <p className="text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-rose-600 dark:text-rose-400">반의어</span> {word.antonyms.slice(0, 4).join(', ')}
+                  </p>
+                ) : null}
+              </div>
+            )}
+            {word.note && (
+              <p className="mt-1 flex items-start gap-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-left text-[11px] text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                <Icon name="note" className="mt-px h-3 w-3 shrink-0" />
+                {word.note}
+              </p>
             )}
           </div>
         </div>

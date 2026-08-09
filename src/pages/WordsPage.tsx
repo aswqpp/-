@@ -276,6 +276,21 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                       </div>
                       <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{w.meaning}</p>
                       {w.example && <p className="mt-1 text-xs italic text-slate-400">"{w.example}"</p>}
+                      {(w.synonyms?.length || w.antonyms?.length) && (
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {w.synonyms?.length ? <span className="text-emerald-600 dark:text-emerald-400">동의 </span> : null}
+                          {w.synonyms?.slice(0, 3).join(', ')}
+                          {w.synonyms?.length && w.antonyms?.length ? ' · ' : ''}
+                          {w.antonyms?.length ? <span className="text-rose-600 dark:text-rose-400">반의 </span> : null}
+                          {w.antonyms?.slice(0, 3).join(', ')}
+                        </p>
+                      )}
+                      {w.note && (
+                        <p className="mt-1 flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                          <Icon name="note" className="mt-px h-3 w-3 shrink-0" />
+                          {w.note}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <DifficultyCycleBadge value={w.difficulty} onChange={(d) => app.updateWord(w.id, { difficulty: d })} />
                         <Badge tone="indigo">{w.category || UNCATEGORIZED}</Badge>

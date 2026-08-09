@@ -15,6 +15,9 @@ export interface WordFormData {
   meaning: string;
   example: string;
   exampleTranslation: string;
+  note: string;
+  synonyms: string[];
+  antonyms: string[];
   category: string;
   difficulty: Difficulty;
   examType: ExamType;
@@ -28,6 +31,9 @@ const emptyForm: WordFormData = {
   meaning: '',
   example: '',
   exampleTranslation: '',
+  note: '',
+  synonyms: [],
+  antonyms: [],
   category: '',
   difficulty: 'medium',
   examType: '기타',
@@ -56,6 +62,9 @@ export function WordFormModal({
           meaning: initial.meaning,
           example: initial.example,
           exampleTranslation: initial.exampleTranslation ?? '',
+          note: initial.note ?? '',
+          synonyms: initial.synonyms ?? [],
+          antonyms: initial.antonyms ?? [],
           category: initial.category,
           difficulty: initial.difficulty,
           examType: initial.examType,
@@ -170,8 +179,13 @@ export function WordFormModal({
   function applyVariant(index: number) {
     const v = variants[index];
     setSelectedVariant(index);
-    set('phonetic', v.phonetic);
-    set('partOfSpeech', v.partsOfSpeech.map(posLabel).join('/'));
+    setForm((f) => ({
+      ...f,
+      phonetic: v.phonetic,
+      partOfSpeech: v.partsOfSpeech.map(posLabel).join('/'),
+      synonyms: v.synonyms,
+      antonyms: v.antonyms,
+    }));
   }
 
   function setSplitMeaning(index: number, value: string) {
@@ -189,6 +203,8 @@ export function WordFormModal({
           ...form,
           phonetic: v.phonetic,
           partOfSpeech: v.partsOfSpeech.map(posLabel).join('/'),
+          synonyms: v.synonyms,
+          antonyms: v.antonyms,
           meaning: splitMeanings[i]?.trim() || meaningCandidates[i]?.[0] || '',
         }))
         .filter((entry) => entry.meaning.trim() !== '');
@@ -365,6 +381,32 @@ export function WordFormModal({
               placeholder="예: 그녀는 야심 찬 젊은 매니저이다."
             />
           </Field>
+          <Field label="나만의 암기 팁 (메모)">
+            <textarea
+              className="input min-h-[56px] resize-none"
+              value={form.note}
+              onChange={(e) => set('note', e.target.value)}
+              placeholder="예: ambi(주위) + tion → 주위를 돌며 자리를 노린다 → 야심"
+            />
+          </Field>
+
+          {(form.synonyms.length > 0 || form.antonyms.length > 0) && (
+            <div className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">동의어 / 반의어</span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, synonyms: [], antonyms: [] }))}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-rose-500"
+                >
+                  지우기
+                </button>
+              </div>
+              {form.synonyms.length > 0 && <RelatedRow label="동의어" tone="green" items={form.synonyms} />}
+              {form.antonyms.length > 0 && <RelatedRow label="반의어" tone="rose" items={form.antonyms} />}
+            </div>
+          )}
+
           <Field label="카테고리">
             <input className="input" value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="예: 비즈니스" />
           </Field>
@@ -389,6 +431,19 @@ export function WordFormModal({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RelatedRow({ label, tone, items }: { label: string; tone: 'green' | 'rose'; items: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge tone={tone}>{label}</Badge>
+      {items.map((t) => (
+        <span key={t} className="text-[11px] text-slate-600 dark:text-slate-300">
+          {t}
+        </span>
+      ))}
     </div>
   );
 }

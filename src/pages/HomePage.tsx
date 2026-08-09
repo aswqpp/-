@@ -3,6 +3,7 @@ import type { UseAppState } from '../hooks/useAppState';
 import { Card, Button, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { computeStreak, getTodayEntry } from '../lib/stats';
+import { GoalRing } from '../components/GoalRing';
 
 export default function HomePage({
   app,
@@ -34,6 +35,10 @@ export default function HomePage({
             {streak}일 연속
           </div>
         </div>
+        <div className="mt-4 border-t border-white/20 pt-3">
+          <GoalRing done={studiedToday} goal={app.state.settings.dailyGoal} />
+        </div>
+
         <div className="mt-4 flex gap-2">
           <Button
             variant="secondary"

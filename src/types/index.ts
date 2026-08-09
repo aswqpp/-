@@ -29,6 +29,11 @@ export interface Word {
   difficulty: Difficulty;
   examType: ExamType;
   favorite: boolean;
+  /** User's own mnemonic / memory hook for this word. */
+  note?: string;
+  /** Filled from the dictionary lookup when the entry provides them; often empty. */
+  synonyms?: string[];
+  antonyms?: string[];
   createdAt: string;
   srs: SrsData;
 }
@@ -43,6 +48,8 @@ export interface StudyLogEntry {
 export interface AppSettings {
   darkMode: boolean;
   flashcardFrontIsWord: boolean;
+  /** Words per day the user is aiming for; drives the goal ring on the home screen. */
+  dailyGoal: number;
 }
 
 export interface AppState {

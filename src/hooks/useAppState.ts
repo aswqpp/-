@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppState, Word } from '../types';
+import type { AppSettings, AppState, Word } from '../types';
 import { loadState, saveState } from '../lib/storage';
+import { mergeWords } from '../lib/backup';
 import { buildInitialState, genId } from '../data/initialState';
 import { reviewWord, todayIso } from '../lib/srs';
 
@@ -24,6 +25,29 @@ export function useAppState() {
   const toggleDarkMode = useCallback(() => {
     setState((s) => ({ ...s, settings: { ...s.settings, darkMode: !s.settings.darkMode } }));
   }, []);
+
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+    setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+  }, []);
+
+  /** Replaces everything with a restored backup. */
+  const replaceState = useCallback((next: AppState) => {
+    setState(next);
+  }, []);
+
+  /**
+   * Adds only the words a backup has that this device doesn't, leaving current progress intact.
+   * Computed from the current snapshot rather than inside the setState updater, so the caller
+   * gets real counts back synchronously.
+   */
+  const mergeFromBackup = useCallback(
+    (incoming: AppState) => {
+      const merged = mergeWords(state.words, incoming.words);
+      setState((s) => ({ ...s, words: merged.words }));
+      return { added: merged.added, skipped: merged.skipped };
+    },
+    [state.words]
+  );
 
   const addWord = useCallback((data: Omit<Word, 'id' | 'createdAt' | 'srs'>) => {
     setState((s) => {
@@ -139,6 +163,9 @@ export function useAppState() {
     gradeWord,
     logSession,
     toggleDarkMode,
+    updateSettings,
+    replaceState,
+    mergeFromBackup,
     resetAllData,
   };
 }

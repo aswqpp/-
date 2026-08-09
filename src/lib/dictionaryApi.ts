@@ -2,6 +2,9 @@ export interface DictionaryVariant {
   phonetic: string;
   partsOfSpeech: string[];
   definitions: string[];
+  /** Often empty — this API only carries them for a subset of entries. */
+  synonyms: string[];
+  antonyms: string[];
 }
 
 interface DictionaryApiPhonetic {
@@ -12,11 +15,16 @@ interface DictionaryApiPhonetic {
 interface DictionaryApiDefinition {
   definition: string;
   example?: string;
+  synonyms?: string[];
+  antonyms?: string[];
 }
 
 interface DictionaryApiMeaning {
   partOfSpeech: string;
   definitions: DictionaryApiDefinition[];
+  /** The API reports these at both the meaning and the definition level. */
+  synonyms?: string[];
+  antonyms?: string[];
 }
 
 interface DictionaryApiEntry {
@@ -45,6 +53,9 @@ export function posLabel(pos: string): string {
   return POS_LABEL_KO[pos.toLowerCase()] ?? pos;
 }
 
+/** Cap on synonyms/antonyms kept per entry — some words return dozens. */
+const MAX_RELATED = 8;
+
 /** Looks up an English word via the free dictionaryapi.dev API. Each array item returned by the API
  *  typically corresponds to a distinct pronunciation (useful for heteronyms like "record"). */
 export async function lookupWord(word: string, signal?: AbortSignal): Promise<DictionaryVariant[]> {
@@ -62,13 +73,27 @@ export async function lookupWord(word: string, signal?: AbortSignal): Promise<Di
     const phoneticText = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || '';
     const posSet = new Set<string>();
     const definitions: string[] = [];
+    const synonyms = new Set<string>();
+    const antonyms = new Set<string>();
+
     for (const m of entry.meanings ?? []) {
       if (m.partOfSpeech) posSet.add(m.partOfSpeech);
+      for (const s of m.synonyms ?? []) synonyms.add(s);
+      for (const a of m.antonyms ?? []) antonyms.add(a);
       for (const d of m.definitions ?? []) {
         if (d.definition && definitions.length < 5) definitions.push(d.definition);
+        for (const s of d.synonyms ?? []) synonyms.add(s);
+        for (const a of d.antonyms ?? []) antonyms.add(a);
       }
     }
-    return { phonetic: phoneticText, partsOfSpeech: Array.from(posSet), definitions };
+
+    return {
+      phonetic: phoneticText,
+      partsOfSpeech: Array.from(posSet),
+      definitions,
+      synonyms: Array.from(synonyms).slice(0, MAX_RELATED),
+      antonyms: Array.from(antonyms).slice(0, MAX_RELATED),
+    };
   });
 
   return variants.filter((v) => v.phonetic || v.definitions.length > 0);

@@ -1,6 +1,7 @@
 import type { AppState, Word } from '../types';
 import { seedWords } from './seedWords';
 import { createInitialSrs } from '../lib/srs';
+import { DEFAULT_DAILY_GOAL } from '../lib/storage';
 
 function genId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -24,6 +25,7 @@ export function buildInitialState(): AppState {
         ? window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
         : false,
       flashcardFrontIsWord: true,
+      dailyGoal: DEFAULT_DAILY_GOAL,
     },
   };
 }

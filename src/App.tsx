@@ -9,6 +9,7 @@ import StudyPage from './pages/StudyPage';
 import QuizPage from './pages/QuizPage';
 import GamesPage from './pages/GamesPage';
 import StatsPage from './pages/StatsPage';
+import { SettingsSheet } from './components/SettingsSheet';
 
 const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
   { screen: 'home', label: '홈', icon: 'home' },
@@ -23,6 +24,7 @@ export default function App() {
   const app = useAppState();
   const [screen, setScreen] = useState<Screen>('home');
   const [pendingStudyIds, setPendingStudyIds] = useState<string[] | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const dueCount = useMemo(() => getDueWords(app.state.words).length, [app.state.words]);
 
@@ -43,13 +45,22 @@ export default function App() {
           </span>
           ASWQPP
         </button>
-        <button
-          aria-label="다크모드 전환"
-          onClick={app.toggleDarkMode}
-          className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <Icon name={app.state.settings.darkMode ? 'sun' : 'moon'} className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="설정"
+            onClick={() => setSettingsOpen(true)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Icon name="settings" className="h-5 w-5" />
+          </button>
+          <button
+            aria-label="다크모드 전환"
+            onClick={app.toggleDarkMode}
+            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Icon name={app.state.settings.darkMode ? 'sun' : 'moon'} className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:sticky sm:bottom-auto sm:top-[57px] sm:border-b sm:border-t-0">
@@ -97,6 +108,8 @@ export default function App() {
         {screen === 'games' && <GamesPage app={app} onNavigate={setScreen} />}
         {screen === 'stats' && <StatsPage app={app} onStartReview={startFocusedReview} />}
       </main>
+
+      {settingsOpen && <SettingsSheet app={app} onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

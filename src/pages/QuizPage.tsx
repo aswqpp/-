@@ -343,6 +343,12 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
         {answered && (
           <div className="mt-4 flex flex-col items-center gap-2 animate-pop-in">
             {current.word.example && <p className="text-center text-xs italic text-slate-400">"{current.word.example}"</p>}
+            {liveWord.note && (
+              <p className="flex items-start gap-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                <Icon name="note" className="mt-px h-3 w-3 shrink-0" />
+                {liveWord.note}
+              </p>
+            )}
             <Button className="mt-1 w-full" onClick={nextQuestion}>
               {index + 1 >= questions.length ? '결과 보기' : '다음 문제'}
             </Button>
