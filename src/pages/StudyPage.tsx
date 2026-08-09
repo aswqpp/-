@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Difficulty, Screen, Word } from '../types';
+import type { Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import { ScopePicker } from '../components/ScopePicker';
+import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
 
@@ -23,8 +25,7 @@ export default function StudyPage({
   const { words } = app.state;
   const { speak, supported } = useTts();
 
-  const [category, setCategory] = useState('all');
-  const [difficulty, setDifficulty] = useState<Difficulty | 'all'>('all');
+  const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
   const [phase, setPhase] = useState<Phase>('setup');
   const [queue, setQueue] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
@@ -34,17 +35,7 @@ export default function StudyPage({
   const [wrong, setWrong] = useState(0);
   const [focusedReview, setFocusedReview] = useState(false);
 
-  const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
-
-  const scopedWords = useMemo(
-    () =>
-      words.filter((w) => {
-        if (category !== 'all' && (w.category || '미분류') !== category) return false;
-        if (difficulty !== 'all' && deriveDifficulty(w.srs) !== difficulty) return false;
-        return true;
-      }),
-    [words, category, difficulty]
-  );
+  const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
   const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   function start(list: Word[], focused = false) {
@@ -92,25 +83,7 @@ export default function StudyPage({
           <EmptyState title="등록된 단어가 없어요" description="단어장에서 먼저 단어를 추가해주세요." />
         ) : (
           <>
-            <Card>
-              <p className="mb-2 text-xs font-semibold text-slate-500">학습 범위 좁히기</p>
-              <div className="flex gap-2">
-                <select className="input flex-1" value={category} onChange={(e) => setCategory(e.target.value)}>
-                  <option value="all">전체 카테고리</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <select className="input flex-1" value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty | 'all')}>
-                  <option value="all">전체 난이도</option>
-                  <option value="easy">쉬움</option>
-                  <option value="medium">보통</option>
-                  <option value="hard">어려움</option>
-                </select>
-              </div>
-            </Card>
+            <ScopePicker words={words} scope={scope} onChange={setScope} title="학습 범위 좁히기" />
 
             <Card>
               <p className="text-sm text-slate-500">오늘 복습할 단어</p>

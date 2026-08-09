@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Difficulty, Word } from '../types';
+import type { DifficultyLevel, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import {
   Button,
@@ -10,7 +10,7 @@ import {
   FavoriteStarButton,
   FilterChip,
 } from '../components/ui';
-import { DIFFICULTY_LABEL, DIFFICULTY_ORDER, deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import { DIFFICULTY_LONG_LABEL, DIFFICULTY_ORDER, deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
@@ -27,7 +27,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   const [examType, setExamType] = useState('all');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [dueOnly, setDueOnly] = useState(false);
-  const [difficulties, setDifficulties] = useState<Difficulty[]>([]);
+  const [difficulties, setDifficulties] = useState<DifficultyLevel[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Word | null>(null);
@@ -77,7 +77,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
 
   // Counts shown on the chips reflect the current scope, so they stay meaningful inside a folder.
   const scopedCounts = useMemo(() => {
-    const byDifficulty = { easy: 0, medium: 0, hard: 0 } as Record<Difficulty, number>;
+    const byDifficulty: Record<DifficultyLevel, number> = { unrated: 0, easy: 0, medium: 0, hard: 0 };
     let due = 0;
     let favorite = 0;
     for (const w of scoped) {
@@ -90,7 +90,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
 
   const filtersActive = favoritesOnly || dueOnly || difficulties.length > 0 || examType !== 'all';
 
-  function toggleDifficulty(d: Difficulty) {
+  function toggleDifficulty(d: DifficultyLevel) {
     setDifficulties((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
   }
 
@@ -230,10 +230,10 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                   key={d}
                   active={difficulties.includes(d)}
                   onToggle={() => toggleDifficulty(d)}
-                  tone={d === 'easy' ? 'green' : d === 'medium' ? 'amber' : 'rose'}
+                  tone={d === 'unrated' ? 'slate' : d === 'easy' ? 'green' : d === 'medium' ? 'amber' : 'rose'}
                   count={scopedCounts.byDifficulty[d]}
                 >
-                  {DIFFICULTY_LABEL[d]}
+                  {DIFFICULTY_LONG_LABEL[d]}
                 </FilterChip>
               ))}
             </div>

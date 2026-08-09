@@ -149,9 +149,14 @@ export function useAppState() {
     });
   }, []);
 
+  /** Wipes every word and study log, keeping the user's settings. */
+  const deleteAllWords = useCallback(() => {
+    setState((s) => ({ ...s, words: [], log: [] }));
+  }, []);
+
+  /** Full factory reset, settings included. */
   const resetAllData = useCallback(() => {
-    const fresh = buildInitialState();
-    setState(fresh);
+    setState(buildInitialState());
   }, []);
 
   return {
@@ -166,6 +171,7 @@ export function useAppState() {
     updateSettings,
     replaceState,
     mergeFromBackup,
+    deleteAllWords,
     resetAllData,
   };
 }

@@ -1,32 +1,45 @@
-import type { Difficulty, SrsData } from '../types';
+import type { DifficultyLevel, SrsData } from '../types';
 
-export const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard'];
+/** Display order: unknown first, then easiest → hardest. */
+export const DIFFICULTY_ORDER: DifficultyLevel[] = ['unrated', 'easy', 'medium', 'hard'];
 
-export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+/** Compact label for the chip on a word. */
+export const DIFFICULTY_LABEL: Record<DifficultyLevel, string> = {
+  unrated: '-',
   easy: '쉬움',
   medium: '보통',
   hard: '어려움',
 };
 
+/** Spelled-out label for filters, legends and selects, where "-" alone would be cryptic. */
+export const DIFFICULTY_LONG_LABEL: Record<DifficultyLevel, string> = {
+  unrated: '미평가',
+  easy: '쉬움',
+  medium: '보통',
+  hard: '어려움',
+};
+
+export const HARD_AT = 0.55;
+export const EASY_AT = 0.3;
+
 /**
- * Difficulty is measured, not declared: it comes from how often the learner
- * actually gets the word wrong.
+ * Laplace-smoothed wrong rate — (wrong + 1) / (attempts + 2).
  *
- * The rate is Laplace-smoothed — (wrong + 1) / (attempts + 2) — rather than raw
- * wrong/attempts, because a raw rate is 100% after a single slip and would fling
- * a word straight to 어려움 (and back again on the next try). Smoothing also gives
- * an untouched word a neutral 0.5, so "no data yet" naturally reads as 보통 with
- * no special case.
+ * A raw wrong/attempts reads 100% after a single slip, which would fling a word
+ * to 어려움 and back again on the next answer. Smoothing pulls low-evidence words
+ * toward the middle so the level settles as real evidence accumulates.
  */
 export function wrongRateSmoothed(srs: SrsData): number {
   const attempts = srs.correctCount + srs.wrongCount;
   return (srs.wrongCount + 1) / (attempts + 2);
 }
 
-const HARD_AT = 0.55;
-const EASY_AT = 0.3;
-
-export function deriveDifficulty(srs: SrsData): Difficulty {
+/**
+ * A word with no attempts is `unrated`, not `medium` — the app genuinely does not
+ * know yet, and saying "보통" would be inventing evidence.
+ */
+export function deriveDifficulty(srs: SrsData): DifficultyLevel {
+  if (srs.correctCount + srs.wrongCount === 0) return 'unrated';
   const rate = wrongRateSmoothed(srs);
   if (rate >= HARD_AT) return 'hard';
   if (rate <= EASY_AT) return 'easy';

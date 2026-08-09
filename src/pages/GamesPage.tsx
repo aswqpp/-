@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { Difficulty, Screen } from '../types';
+import type { Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card, EmptyState, Button } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { deriveDifficulty } from '../lib/difficulty';
+import { ScopePicker } from '../components/ScopePicker';
+import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import AnagramGame from '../components/games/AnagramGame';
 import WordBuildGame from '../components/games/WordBuildGame';
 import MatchGame from '../components/games/MatchGame';
@@ -14,18 +15,8 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
   const [active, setActive] = useState<GameKey>('menu');
   const { words } = app.state;
 
-  const [category, setCategory] = useState('all');
-  const [difficulty, setDifficulty] = useState<Difficulty | 'all'>('all');
-  const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
-  const scopedWords = useMemo(
-    () =>
-      words.filter((w) => {
-        if (category !== 'all' && (w.category || '미분류') !== category) return false;
-        if (difficulty !== 'all' && deriveDifficulty(w.srs) !== difficulty) return false;
-        return true;
-      }),
-    [words, category, difficulty]
-  );
+  const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
+  const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
 
   if (words.length < 4) {
     return (
@@ -51,25 +42,7 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
       <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">게임으로 복습</h1>
       <p className="text-sm text-slate-500">게임에서 틀린 단어는 복습 우선순위가 올라가요.</p>
 
-      <Card>
-        <p className="mb-2 text-xs font-semibold text-slate-500">게임 범위 좁히기 (범위 내 {scopedWords.length}개)</p>
-        <div className="flex gap-2">
-          <select className="input flex-1" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="all">전체 카테고리</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <select className="input flex-1" value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty | 'all')}>
-            <option value="all">전체 난이도</option>
-            <option value="easy">쉬움</option>
-            <option value="medium">보통</option>
-            <option value="hard">어려움</option>
-          </select>
-        </div>
-      </Card>
+      <ScopePicker words={words} scope={scope} onChange={setScope} title="게임 범위 좁히기" />
 
       {scopedWords.length < 3 ? (
         <EmptyState title="이 범위엔 단어가 부족해요" description="카테고리나 난이도 필터를 넓혀보세요." />

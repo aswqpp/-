@@ -69,6 +69,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const [mcDirection, setMcDirection] = useState<McDirection>('word-to-meaning');
   const [mcOptionCount, setMcOptionCount] = useState(4);
   const [questionCount, setQuestionCount] = useState<number | null>(10);
+  const [customCount, setCustomCount] = useState('');
 
   function toggleType(t: QuizType) {
     setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -203,15 +204,43 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
 
               <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                 <p className="mb-1.5 text-xs font-semibold text-slate-500">문제 수</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {QUESTION_COUNTS.map((n) => (
-                    <PillButton key={n ?? 'all'} active={questionCount === n} onClick={() => setQuestionCount(n)}>
+                    <PillButton
+                      key={n ?? 'all'}
+                      active={questionCount === n}
+                      onClick={() => {
+                        setQuestionCount(n);
+                        setCustomCount('');
+                      }}
+                    >
                       {n === null ? '전체' : `${n}문제`}
                     </PillButton>
                   ))}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      inputMode="numeric"
+                      placeholder="직접"
+                      aria-label="문제 수 직접 입력"
+                      value={customCount}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setCustomCount(raw);
+                        const n = Number.parseInt(raw, 10);
+                        if (Number.isFinite(n) && n > 0) setQuestionCount(Math.min(999, n));
+                      }}
+                      className={`input w-20 px-2 py-1.5 text-center text-xs ${
+                        customCount !== '' ? 'border-indigo-400 dark:border-indigo-500' : ''
+                      }`}
+                    />
+                    <span className="text-xs text-slate-400">문제</span>
+                  </div>
                 </div>
                 <p className="mt-1.5 text-[11px] text-slate-400">
-                  선택한 수보다 단어가 적으면 있는 만큼만 출제돼요.
+                  선택한 수보다 범위 내 단어가 적으면 있는 만큼만 출제돼요.
                 </p>
               </div>
             </Card>

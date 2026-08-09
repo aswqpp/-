@@ -1,11 +1,14 @@
 export type ExamType = 'TOEIC' | 'TOEFL' | '수능' | '공무원' | '일상회화' | '기타';
 
-/**
- * Not stored on a word — computed from its review record by
- * `deriveDifficulty()` in lib/difficulty.ts, so it always reflects how
- * hard the word is proving to be for this learner.
- */
+/** The three measured levels. */
 export type Difficulty = 'easy' | 'medium' | 'hard';
+
+/**
+ * What a word's difficulty chip can show. Not stored — computed from the review
+ * record by `deriveDifficulty()` in lib/difficulty.ts. A word nobody has attempted
+ * yet is `unrated` ("-"): unknown, which is not the same as measured-as-medium.
+ */
+export type DifficultyLevel = Difficulty | 'unrated';
 
 export interface SrsData {
   /** SM-2 style ease factor, >= 1.3 */

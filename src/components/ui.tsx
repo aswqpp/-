@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
-import type { Difficulty } from '../types';
+import type { DifficultyLevel } from '../types';
 import { DIFFICULTY_LABEL } from '../lib/difficulty';
 import { Icon } from './Icon';
 
@@ -123,7 +123,8 @@ export function FilterChip({
   );
 }
 
-const DIFFICULTY_BUTTON_TONE: Record<Difficulty, string> = {
+const DIFFICULTY_BUTTON_TONE: Record<DifficultyLevel, string> = {
+  unrated: 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500',
   easy: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
   medium: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
   hard: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300',
@@ -138,20 +139,20 @@ export function DifficultyBadge({
   wrongRate,
   className = '',
 }: {
-  value: Difficulty;
+  value: DifficultyLevel;
   /** Raw wrong rate 0-1, or null when the word has never been attempted. */
   wrongRate?: number | null;
   className?: string;
 }) {
   const title =
     wrongRate === null || wrongRate === undefined
-      ? '아직 학습 기록이 없어요 · 난이도는 오답률로 자동 계산됩니다'
+      ? '아직 풀어본 적이 없어 난이도를 알 수 없어요 (미평가)'
       : `오답률 ${Math.round(wrongRate * 100)}% · 난이도는 오답률로 자동 계산됩니다`;
 
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
+      className={`inline-flex min-w-6 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
     >
       {DIFFICULTY_LABEL[value]}
     </span>

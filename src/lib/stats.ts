@@ -1,4 +1,4 @@
-import type { Difficulty, StudyLogEntry, Word } from '../types';
+import type { DifficultyLevel, StudyLogEntry, Word } from '../types';
 import { deriveDifficulty } from './difficulty';
 import { addDays, todayIso } from './srs';
 
@@ -73,16 +73,11 @@ export function categoryMastery(words: Word[]): CategoryMastery[] {
     .sort((a, b) => b.total - a.total);
 }
 
-export interface DifficultyDistribution {
-  easy: number;
-  medium: number;
-  hard: number;
-  total: number;
-}
+export type DifficultyDistribution = Record<DifficultyLevel, number> & { total: number };
 
 export function difficultyDistribution(words: Word[]): DifficultyDistribution {
-  const dist: DifficultyDistribution = { easy: 0, medium: 0, hard: 0, total: words.length };
-  for (const w of words) dist[deriveDifficulty(w.srs) as Difficulty]++;
+  const dist: DifficultyDistribution = { unrated: 0, easy: 0, medium: 0, hard: 0, total: words.length };
+  for (const w of words) dist[deriveDifficulty(w.srs)]++;
   return dist;
 }
 
@@ -145,4 +140,90 @@ export function reviewForecast(words: Word[]): ReviewForecast {
   }
 
   return { todayCount: perDay[0].count, weekCount, perDay };
+}
+
+/** Longest run of consecutive studied days anywhere in the log, not just the current one. */
+export function longestStreak(log: StudyLogEntry[]): number {
+  const dates = log.filter((l) => l.studiedCount > 0).map((l) => l.date).sort();
+  if (dates.length === 0) return 0;
+
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < dates.length; i++) {
+    if (addDays(dates[i - 1], 1) === dates[i]) run++;
+    else run = 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+export interface StudyTotals {
+  studyDays: number;
+  totalStudied: number;
+  totalAttempts: number;
+  avgPerStudyDay: number;
+  bestDayCount: number;
+  bestDayDate: string | null;
+}
+
+export function studyTotals(log: StudyLogEntry[]): StudyTotals {
+  const active = log.filter((l) => l.studiedCount > 0);
+  const totalStudied = active.reduce((sum, l) => sum + l.studiedCount, 0);
+  const totalAttempts = log.reduce((sum, l) => sum + l.correctCount + l.wrongCount, 0);
+  const best = active.reduce<StudyLogEntry | null>((acc, l) => (!acc || l.studiedCount > acc.studiedCount ? l : acc), null);
+
+  return {
+    studyDays: active.length,
+    totalStudied,
+    totalAttempts,
+    avgPerStudyDay: active.length ? Math.round((totalStudied / active.length) * 10) / 10 : 0,
+    bestDayCount: best?.studiedCount ?? 0,
+    bestDayDate: best?.date ?? null,
+  };
+}
+
+export interface WeekdayStat {
+  /** 0 = Sunday */
+  dow: number;
+  studied: number;
+  days: number;
+}
+
+/** Which weekdays the learner actually studies on — reveals the real routine. */
+export function weekdayPattern(log: StudyLogEntry[]): WeekdayStat[] {
+  const stats: WeekdayStat[] = Array.from({ length: 7 }, (_, dow) => ({ dow, studied: 0, days: 0 }));
+  for (const l of log) {
+    if (l.studiedCount <= 0) continue;
+    const dow = new Date(l.date + 'T00:00:00').getDay();
+    stats[dow].studied += l.studiedCount;
+    stats[dow].days += 1;
+  }
+  return stats;
+}
+
+export type MemoryStage = 'new' | 'learning' | 'reviewing' | 'mastered';
+
+export const MEMORY_STAGE_LABEL: Record<MemoryStage, string> = {
+  new: '미학습',
+  learning: '학습 중',
+  reviewing: '복습 중',
+  mastered: '장기 기억',
+};
+
+/**
+ * Where each word sits in the SM-2 pipeline. Distinct from difficulty: difficulty
+ * says how often it is missed, this says how far the scheduler has pushed it out.
+ */
+export function memoryStage(word: Word): MemoryStage {
+  const { repetitions, interval, correctCount, wrongCount } = word.srs;
+  if (correctCount + wrongCount === 0) return 'new';
+  if (interval >= 21 && repetitions >= 3) return 'mastered';
+  if (repetitions >= 2) return 'reviewing';
+  return 'learning';
+}
+
+export function memoryStageDistribution(words: Word[]): Record<MemoryStage, number> {
+  const dist: Record<MemoryStage, number> = { new: 0, learning: 0, reviewing: 0, mastered: 0 };
+  for (const w of words) dist[memoryStage(w)]++;
+  return dist;
 }

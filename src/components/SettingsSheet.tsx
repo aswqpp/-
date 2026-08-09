@@ -54,6 +54,16 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
     });
   }
 
+  function handleDeleteAll() {
+    if (words.length === 0) return;
+    // Two-step on purpose: this is unrecoverable and sits next to harmless controls.
+    if (!confirm(`단어 ${words.length}개와 학습 기록을 모두 삭제할까요? 되돌릴 수 없어요.`)) return;
+    if (!confirm('정말 삭제할까요? 마지막 확인이에요.')) return;
+    app.deleteAllWords();
+    setPending(null);
+    setNotice({ tone: 'ok', text: '모든 단어와 학습 기록을 삭제했어요.' });
+  }
+
   function confirmReplace() {
     if (!pending) return;
     if (!confirm(`현재 단어 ${words.length}개와 학습 기록이 모두 사라지고 백업 내용으로 대체돼요. 계속할까요?`)) return;
@@ -148,6 +158,16 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
             {notice.text}
           </p>
         )}
+
+        <section className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <p className="text-xs font-semibold text-rose-500">위험 구역</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+            단어 {words.length}개와 모든 학습 기록이 지워져요. 되돌릴 수 없으니, 필요하면 먼저 내보내 두세요.
+          </p>
+          <Button variant="danger" className="mt-2 w-full" onClick={handleDeleteAll} disabled={words.length === 0}>
+            <Icon name="trash" className="h-4 w-4" /> 모든 단어 삭제
+          </Button>
+        </section>
 
         <section className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
           <div className="flex items-center justify-between">

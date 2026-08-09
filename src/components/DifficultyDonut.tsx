@@ -10,6 +10,8 @@ const SEGMENTS: { key: keyof Omit<DifficultyDistribution, 'total'>; label: strin
   { key: 'easy', label: '쉬움', strokeClass: 'stroke-emerald-500 dark:stroke-emerald-400', dotClass: 'bg-emerald-500 dark:bg-emerald-400' },
   { key: 'medium', label: '보통', strokeClass: 'stroke-amber-500 dark:stroke-amber-400', dotClass: 'bg-amber-500 dark:bg-amber-400' },
   { key: 'hard', label: '어려움', strokeClass: 'stroke-rose-500 dark:stroke-rose-400', dotClass: 'bg-rose-500 dark:bg-rose-400' },
+  // Kept last and grey: "not measured yet" is the absence of a rating, not a fourth level.
+  { key: 'unrated', label: '미평가 (-)', strokeClass: 'stroke-slate-300 dark:stroke-slate-600', dotClass: 'bg-slate-300 dark:bg-slate-600' },
 ];
 
 export function DifficultyDonut({ data }: { data: DifficultyDistribution }) {
