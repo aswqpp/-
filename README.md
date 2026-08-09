@@ -37,7 +37,19 @@
 
 ```bash
 npm install
-npm run dev      # 개발 서버 실행
-npm run build    # 프로덕션 빌드
-npm run lint     # oxlint 검사
+npm run dev            # 개발 서버 (http://localhost:5173)
+npm run build          # 프로덕션 빌드
+npm run preview:pages  # 빌드 결과를 GitHub Pages와 동일하게 /-/ 하위 경로로 서빙
+npm run lint           # oxlint 검사
 ```
+
+> `vite preview`는 base가 루트가 아닐 때 진입 스크립트 요청(`Sec-Fetch-Dest: script`)에 404를 반환합니다.
+> 빌드 결과 확인은 `npm run preview:pages`를 쓰세요.
+
+## 배포
+
+`claude/new-session-og2xyu` 브랜치에 push하면 GitHub Actions가 자동으로 빌드해서 GitHub Pages에 배포합니다.
+
+- 주소: `https://aswqpp.github.io/-/`
+- 저장소 이름이 `-`이라 앱이 `/-/` 하위 경로에 놓입니다. `vite.config.ts`의 `PROD_BASE`와 PWA `scope`/`start_url`이 여기에 맞춰져 있습니다.
+- **최초 1회만** 저장소 Settings → Pages → Source를 **GitHub Actions**로 지정해야 합니다.
