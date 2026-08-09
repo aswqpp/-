@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 import type { Difficulty } from '../types';
-import { DIFFICULTY_LABEL, DIFFICULTY_ORDER } from '../lib/difficulty';
+import { DIFFICULTY_LABEL } from '../lib/difficulty';
 import { Icon } from './Icon';
 
 export function Card({
@@ -129,29 +129,32 @@ const DIFFICULTY_BUTTON_TONE: Record<Difficulty, string> = {
   hard: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300',
 };
 
-/** Tap-to-cycle difficulty control (easy → medium → hard → easy), replacing the old dropdown. */
-export function DifficultyCycleBadge({
+/**
+ * Read-only difficulty chip. Difficulty is measured from the learner's own
+ * accuracy, so there is nothing to set by hand — the tooltip says as much.
+ */
+export function DifficultyBadge({
   value,
-  onChange,
+  wrongRate,
   className = '',
 }: {
   value: Difficulty;
-  onChange: (next: Difficulty) => void;
+  /** Raw wrong rate 0-1, or null when the word has never been attempted. */
+  wrongRate?: number | null;
   className?: string;
 }) {
+  const title =
+    wrongRate === null || wrongRate === undefined
+      ? '아직 학습 기록이 없어요 · 난이도는 오답률로 자동 계산됩니다'
+      : `오답률 ${Math.round(wrongRate * 100)}% · 난이도는 오답률로 자동 계산됩니다`;
+
   return (
-    <button
-      type="button"
-      title="탭해서 난이도 변경"
-      onClick={(e) => {
-        e.stopPropagation();
-        const idx = DIFFICULTY_ORDER.indexOf(value);
-        onChange(DIFFICULTY_ORDER[(idx + 1) % DIFFICULTY_ORDER.length]);
-      }}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition active:scale-95 ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
+    <span
+      title={title}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
     >
       {DIFFICULTY_LABEL[value]}
-    </button>
+    </span>
   );
 }
 

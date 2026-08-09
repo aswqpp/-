@@ -1,5 +1,10 @@
 export type ExamType = 'TOEIC' | 'TOEFL' | '수능' | '공무원' | '일상회화' | '기타';
 
+/**
+ * Not stored on a word — computed from its review record by
+ * `deriveDifficulty()` in lib/difficulty.ts, so it always reflects how
+ * hard the word is proving to be for this learner.
+ */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export interface SrsData {
@@ -26,7 +31,6 @@ export interface Word {
   example: string;
   exampleTranslation?: string;
   category: string;
-  difficulty: Difficulty;
   examType: ExamType;
   favorite: boolean;
   /** User's own mnemonic / memory hook for this word. */

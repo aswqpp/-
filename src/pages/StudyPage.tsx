@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Difficulty, Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Button, Card, EmptyState, ProgressBar, DifficultyCycleBadge, FavoriteStarButton, Badge } from '../components/ui';
+import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
+import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
 
@@ -39,7 +40,7 @@ export default function StudyPage({
     () =>
       words.filter((w) => {
         if (category !== 'all' && (w.category || '미분류') !== category) return false;
-        if (difficulty !== 'all' && w.difficulty !== difficulty) return false;
+        if (difficulty !== 'all' && deriveDifficulty(w.srs) !== difficulty) return false;
         return true;
       }),
     [words, category, difficulty]
@@ -197,7 +198,7 @@ export default function StudyPage({
 
       <div className="flex items-center justify-center gap-2">
         <FavoriteStarButton active={word.favorite} onToggle={() => app.updateWord(word.id, { favorite: !word.favorite })} className="h-5 w-5" />
-        <DifficultyCycleBadge value={word.difficulty} onChange={(d) => app.updateWord(word.id, { difficulty: d })} />
+        <DifficultyBadge value={deriveDifficulty(word.srs)} wrongRate={wrongRateDisplay(word.srs)} />
       </div>
 
       <div className="flip-scene mt-1">

@@ -1,4 +1,5 @@
-import type { StudyLogEntry, Word } from '../types';
+import type { Difficulty, StudyLogEntry, Word } from '../types';
+import { deriveDifficulty } from './difficulty';
 import { addDays, todayIso } from './srs';
 
 export function getTodayEntry(log: StudyLogEntry[]): StudyLogEntry | undefined {
@@ -80,8 +81,8 @@ export interface DifficultyDistribution {
 }
 
 export function difficultyDistribution(words: Word[]): DifficultyDistribution {
-  const dist = { easy: 0, medium: 0, hard: 0, total: words.length };
-  for (const w of words) dist[w.difficulty]++;
+  const dist: DifficultyDistribution = { easy: 0, medium: 0, hard: 0, total: words.length };
+  for (const w of words) dist[deriveDifficulty(w.srs) as Difficulty]++;
   return dist;
 }
 

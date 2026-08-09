@@ -6,11 +6,11 @@ import {
   Card,
   EmptyState,
   Badge,
-  DifficultyCycleBadge,
+  DifficultyBadge,
   FavoriteStarButton,
   FilterChip,
 } from '../components/ui';
-import { DIFFICULTY_LABEL, DIFFICULTY_ORDER } from '../lib/difficulty';
+import { DIFFICULTY_LABEL, DIFFICULTY_ORDER, deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
@@ -70,7 +70,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
       if (examType !== 'all' && w.examType !== examType) return false;
       if (favoritesOnly && !w.favorite) return false;
       if (dueOnly && !isDue(w)) return false;
-      if (difficulties.length > 0 && !difficulties.includes(w.difficulty)) return false;
+      if (difficulties.length > 0 && !difficulties.includes(deriveDifficulty(w.srs))) return false;
       return true;
     });
   }, [scoped, examType, favoritesOnly, dueOnly, difficulties]);
@@ -81,7 +81,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
     let due = 0;
     let favorite = 0;
     for (const w of scoped) {
-      byDifficulty[w.difficulty]++;
+      byDifficulty[deriveDifficulty(w.srs)]++;
       if (isDue(w)) due++;
       if (w.favorite) favorite++;
     }
@@ -292,7 +292,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                         </p>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <DifficultyCycleBadge value={w.difficulty} onChange={(d) => app.updateWord(w.id, { difficulty: d })} />
+                        <DifficultyBadge value={deriveDifficulty(w.srs)} wrongRate={wrongRateDisplay(w.srs)} />
                         <Badge tone="indigo">{w.category || UNCATEGORIZED}</Badge>
                         <Badge>{w.examType}</Badge>
                         {isDue(w) && <Badge tone="rose">복습 필요</Badge>}

@@ -69,7 +69,8 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       </Card>
 
       <Card>
-        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
+        <p className="mb-3 text-xs text-slate-400">난이도는 직접 정하지 않고, 각 단어의 오답률로 자동 계산돼요.</p>
         <DifficultyDonut data={diffDist} />
       </Card>
 

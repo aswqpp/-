@@ -1,11 +1,10 @@
-import type { AppSettings, AppState, Difficulty, ExamType, StudyLogEntry, Word } from '../types';
+import type { AppSettings, AppState, ExamType, StudyLogEntry, Word } from '../types';
 import { createInitialSrs } from './srs';
 
 const STORAGE_KEY = 'voca-app-state-v1';
 
 export const DEFAULT_DAILY_GOAL = 20;
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
 
 function str(v: unknown, fallback = ''): string {
@@ -53,7 +52,6 @@ export function normalizeWord(raw: unknown): Word | null {
     example: str(r.example),
     exampleTranslation: str(r.exampleTranslation) || undefined,
     category: str(r.category),
-    difficulty: DIFFICULTIES.includes(r.difficulty as Difficulty) ? (r.difficulty as Difficulty) : 'medium',
     examType: EXAM_TYPES.includes(r.examType as ExamType) ? (r.examType as ExamType) : '기타',
     favorite: r.favorite === true,
     note: str(r.note) || undefined,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Difficulty, ExamType, Word } from '../types';
+import type { ExamType, Word } from '../types';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
 import { lookupWord, posLabel, type DictionaryVariant } from '../lib/dictionaryApi';
@@ -19,7 +19,6 @@ export interface WordFormData {
   synonyms: string[];
   antonyms: string[];
   category: string;
-  difficulty: Difficulty;
   examType: ExamType;
   favorite: boolean;
 }
@@ -35,7 +34,6 @@ const emptyForm: WordFormData = {
   synonyms: [],
   antonyms: [],
   category: '',
-  difficulty: 'medium',
   examType: '기타',
   favorite: false,
 };
@@ -66,7 +64,6 @@ export function WordFormModal({
           synonyms: initial.synonyms ?? [],
           antonyms: initial.antonyms ?? [],
           category: initial.category,
-          difficulty: initial.difficulty,
           examType: initial.examType,
           favorite: initial.favorite,
         }

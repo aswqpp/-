@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type DragEvent } from 'react';
-import type { Difficulty, ExamType, Word } from '../types';
+import type { ExamType, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
@@ -21,12 +21,7 @@ import {
 type Step = 'select' | 'parsing' | 'mapping' | 'result' | 'error';
 
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
-const DIFFICULTIES: { value: Difficulty; label: string }[] = [
-  { value: 'easy', label: '쉬움' },
-  { value: 'medium', label: '보통' },
-  { value: 'hard', label: '어려움' },
-];
-const OPTIONAL_DEFAULTABLE: MappableField[] = ['category', 'difficulty', 'examType'];
+const OPTIONAL_DEFAULTABLE: MappableField[] = ['category', 'examType'];
 
 export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: () => void }) {
   const [step, setStep] = useState<Step>('select');
@@ -34,7 +29,7 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
   const [rows, setRows] = useState<string[][]>([]);
   const [hasHeader, setHasHeader] = useState(true);
   const [mapping, setMapping] = useState<FieldMapping>(() => detectMapping([]));
-  const [defaults, setDefaults] = useState<ImportDefaults>({ category: '가져온 단어', difficulty: 'medium', examType: '기타' });
+  const [defaults, setDefaults] = useState<ImportDefaults>({ category: '가져온 단어', examType: '기타' });
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [result, setResult] = useState<{ added: number; skippedDuplicates: number; invalid: number } | null>(null);
@@ -118,7 +113,6 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
       example: r.example,
       exampleTranslation: r.exampleTranslation,
       category: r.category,
-      difficulty: r.difficulty,
       examType: r.examType,
       favorite: false,
     }));
@@ -317,21 +311,6 @@ function DefaultValueControl({
         value={defaults.category}
         onChange={(e) => setDefaults((d) => ({ ...d, category: e.target.value }))}
       />
-    );
-  }
-  if (field === 'difficulty') {
-    return (
-      <select
-        className="input w-24 shrink-0 text-xs"
-        value={defaults.difficulty}
-        onChange={(e) => setDefaults((d) => ({ ...d, difficulty: e.target.value as Difficulty }))}
-      >
-        {DIFFICULTIES.map((d) => (
-          <option key={d.value} value={d.value}>
-            {d.label}
-          </option>
-        ))}
-      </select>
     );
   }
   return (

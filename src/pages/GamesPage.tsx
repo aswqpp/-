@@ -3,6 +3,7 @@ import type { Difficulty, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card, EmptyState, Button } from '../components/ui';
 import { Icon } from '../components/Icon';
+import { deriveDifficulty } from '../lib/difficulty';
 import AnagramGame from '../components/games/AnagramGame';
 import WordBuildGame from '../components/games/WordBuildGame';
 import MatchGame from '../components/games/MatchGame';
@@ -20,7 +21,7 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
     () =>
       words.filter((w) => {
         if (category !== 'all' && (w.category || '미분류') !== category) return false;
-        if (difficulty !== 'all' && w.difficulty !== difficulty) return false;
+        if (difficulty !== 'all' && deriveDifficulty(w.srs) !== difficulty) return false;
         return true;
       }),
     [words, category, difficulty]
