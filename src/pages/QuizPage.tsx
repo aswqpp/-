@@ -1,9 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import type { Difficulty, QuizType, Screen } from '../types';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import type { QuizType, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import { ScopePicker } from '../components/ScopePicker';
+import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
 import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
 import {
@@ -43,18 +45,8 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const { words } = app.state;
   const { speak, supported } = useTts();
 
-  const [category, setCategory] = useState('all');
-  const [difficulty, setDifficulty] = useState<Difficulty | 'all'>('all');
-  const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category || '미분류'))).sort(), [words]);
-  const scopedWords = useMemo(
-    () =>
-      words.filter((w) => {
-        if (category !== 'all' && (w.category || '미분류') !== category) return false;
-        if (difficulty !== 'all' && deriveDifficulty(w.srs) !== difficulty) return false;
-        return true;
-      }),
-    [words, category, difficulty]
-  );
+  const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
+  const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
   const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -70,6 +62,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const [mcOptionCount, setMcOptionCount] = useState(4);
   const [questionCount, setQuestionCount] = useState<number | null>(10);
   const [customCount, setCustomCount] = useState('');
+  const sessionStartRef = useRef(0);
 
   function toggleType(t: QuizType) {
     setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -82,6 +75,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
 
   function start(pool: typeof words) {
     if (pool.length === 0 || selectedTypes.length === 0) return;
+    sessionStartRef.current = Date.now();
     const list = shuffleArray(pool).slice(0, plannedCount(pool.length));
     setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
@@ -106,7 +100,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function nextQuestion() {
     const next = index + 1;
     if (next >= questions.length) {
-      app.logSession(questions.length, correct, wrong);
+      app.logSession(questions.length, correct, wrong, (Date.now() - sessionStartRef.current) / 1000);
       setPhase('done');
     } else {
       setIndex(next);
@@ -137,25 +131,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
           <EmptyState title="단어가 부족해요" description="퀴즈를 풀려면 최소 2개 이상의 단어가 필요해요." />
         ) : (
           <>
-            <Card>
-              <p className="mb-2 text-xs font-semibold text-slate-500">출제 범위 좁히기</p>
-              <div className="flex gap-2">
-                <select className="input flex-1" value={category} onChange={(e) => setCategory(e.target.value)}>
-                  <option value="all">전체 카테고리</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <select className="input flex-1" value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty | 'all')}>
-                  <option value="all">전체 난이도</option>
-                  <option value="easy">쉬움</option>
-                  <option value="medium">보통</option>
-                  <option value="hard">어려움</option>
-                </select>
-              </div>
-            </Card>
+            <ScopePicker words={words} scope={scope} onChange={setScope} title="출제 범위 좁히기" />
 
             <Card>
               <p className="mb-2 text-sm font-semibold text-slate-600 dark:text-slate-300">퀴즈 유형 선택</p>

@@ -50,6 +50,8 @@ export interface StudyLogEntry {
   studiedCount: number;
   correctCount: number;
   wrongCount: number;
+  /** Wall-clock seconds spent in sessions that day. Absent in pre-existing data, so treated as 0. */
+  studySeconds: number;
 }
 
 export interface AppSettings {

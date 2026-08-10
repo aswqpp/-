@@ -1,4 +1,4 @@
-import type { DifficultyLevel, StudyLogEntry, Word } from '../types';
+import type { DifficultyLevel, ExamType, StudyLogEntry, Word } from '../types';
 import { deriveDifficulty } from './difficulty';
 import { addDays, todayIso } from './srs';
 
@@ -34,7 +34,7 @@ export function lastNDays(log: StudyLogEntry[], n: number): StudyLogEntry[] {
   const days: StudyLogEntry[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const date = addDays(today, -i);
-    days.push(byDate.get(date) ?? { date, studiedCount: 0, correctCount: 0, wrongCount: 0 });
+    days.push(byDate.get(date) ?? { date, studiedCount: 0, correctCount: 0, wrongCount: 0, studySeconds: 0 });
   }
   return days;
 }
@@ -164,6 +164,8 @@ export interface StudyTotals {
   avgPerStudyDay: number;
   bestDayCount: number;
   bestDayDate: string | null;
+  totalSeconds: number;
+  avgSecondsPerStudyDay: number;
 }
 
 export function studyTotals(log: StudyLogEntry[]): StudyTotals {
@@ -172,6 +174,8 @@ export function studyTotals(log: StudyLogEntry[]): StudyTotals {
   const totalAttempts = log.reduce((sum, l) => sum + l.correctCount + l.wrongCount, 0);
   const best = active.reduce<StudyLogEntry | null>((acc, l) => (!acc || l.studiedCount > acc.studiedCount ? l : acc), null);
 
+  const totalSeconds = log.reduce((sum, l) => sum + (l.studySeconds ?? 0), 0);
+
   return {
     studyDays: active.length,
     totalStudied,
@@ -179,7 +183,20 @@ export function studyTotals(log: StudyLogEntry[]): StudyTotals {
     avgPerStudyDay: active.length ? Math.round((totalStudied / active.length) * 10) / 10 : 0,
     bestDayCount: best?.studiedCount ?? 0,
     bestDayDate: best?.date ?? null,
+    totalSeconds,
+    avgSecondsPerStudyDay: active.length ? Math.round(totalSeconds / active.length) : 0,
   };
+}
+
+/** "1시간 24분" / "7분 30초" / "45초" — omits units that would read as 0. */
+export function formatDuration(totalSeconds: number): string {
+  if (totalSeconds <= 0) return '0분';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const sec = totalSeconds % 60;
+  if (h > 0) return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  if (m > 0) return `${m}분`;
+  return `${sec}초`;
 }
 
 export interface WeekdayStat {
@@ -226,4 +243,30 @@ export function memoryStageDistribution(words: Word[]): Record<MemoryStage, numb
   const dist: Record<MemoryStage, number> = { new: 0, learning: 0, reviewing: 0, mastered: 0 };
   for (const w of words) dist[memoryStage(w)]++;
   return dist;
+}
+
+export interface ExamTypeMastery {
+  examType: ExamType;
+  total: number;
+  mastered: number;
+  pct: number;
+}
+
+/**
+ * Same shape as categoryMastery, but grouped by the exam each word is being studied for.
+ * Categories are user-invented; exam type is a fixed axis, so "수능 80% / TOEIC 40%" is
+ * comparable in a way category names are not.
+ */
+export function examTypeMastery(words: Word[]): ExamTypeMastery[] {
+  const map = new Map<ExamType, Word[]>();
+  for (const w of words) {
+    if (!map.has(w.examType)) map.set(w.examType, []);
+    map.get(w.examType)!.push(w);
+  }
+  return Array.from(map.entries())
+    .map(([examType, list]) => {
+      const mastered = list.filter(isMastered).length;
+      return { examType, total: list.length, mastered, pct: list.length ? Math.round((mastered / list.length) * 100) : 0 };
+    })
+    .sort((a, b) => b.total - a.total);
 }

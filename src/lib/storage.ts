@@ -80,6 +80,7 @@ function normalizeLogEntry(raw: unknown): StudyLogEntry | null {
     studiedCount: num(r.studiedCount, 0),
     correctCount: num(r.correctCount, 0),
     wrongCount: num(r.wrongCount, 0),
+    studySeconds: Math.max(0, Math.round(num(r.studySeconds, 0))),
   };
 }
 

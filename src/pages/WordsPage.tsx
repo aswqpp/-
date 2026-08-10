@@ -325,7 +325,12 @@ export default function WordsPage({ app }: { app: UseAppState }) {
       {modalOpen && (
         <WordFormModal
           initial={editing}
-          defaultCategory={!editing && selectedFolder && selectedFolder !== ALL ? selectedFolder : undefined}
+          defaultCategory={
+            !editing && selectedFolder && selectedFolder !== ALL && selectedFolder !== UNCATEGORIZED
+              ? selectedFolder
+              : undefined
+          }
+          knownCategories={folders.map((f) => f.name).filter((n) => n !== UNCATEGORIZED)}
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />

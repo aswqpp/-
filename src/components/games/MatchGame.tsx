@@ -67,7 +67,7 @@ export default function MatchGame({ app, pool, onExit }: { app: UseAppState; poo
       app.gradeWord(w.id, isClean ? QUALITY_CORRECT : QUALITY_INCORRECT);
       if (isClean) correctCount++;
     }
-    app.logSession(pairWords.length, correctCount, pairWords.length - correctCount);
+    app.logSession(pairWords.length, correctCount, pairWords.length - correctCount, elapsed / 1000);
     setFinalElapsedMs(elapsed);
     setFinished(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps

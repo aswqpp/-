@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
@@ -34,12 +34,14 @@ export default function StudyPage({
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [focusedReview, setFocusedReview] = useState(false);
+  const sessionStartRef = useRef(0);
 
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
   const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   function start(list: Word[], focused = false) {
     if (list.length === 0) return;
+    sessionStartRef.current = Date.now();
     setQueue(list);
     setIndex(0);
     setFlipped(false);
@@ -66,7 +68,12 @@ export default function StudyPage({
 
     const next = index + 1;
     if (next >= queue.length) {
-      app.logSession(queue.length, correct + (know ? 1 : 0), wrong + (know ? 0 : 1));
+      app.logSession(
+        queue.length,
+        correct + (know ? 1 : 0),
+        wrong + (know ? 0 : 1),
+        (Date.now() - sessionStartRef.current) / 1000
+      );
       setPhase('done');
     } else {
       setIndex(next);

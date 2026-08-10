@@ -7,6 +7,7 @@ import { suggestEnglishWord, suggestKoreanMeanings } from '../lib/translateApi';
 
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
 const LOOKUP_TIMEOUT_MS = 8000;
+const POS_SUGGESTIONS = ['명사', '동사', '형용사', '부사', '전치사', '접속사', '대명사', '감탄사'];
 
 export interface WordFormData {
   word: string;
@@ -43,11 +44,14 @@ type LookupStatus = 'idle' | 'loading' | 'error' | 'done';
 export function WordFormModal({
   initial,
   defaultCategory,
+  knownCategories = [],
   onClose,
   onSave,
 }: {
   initial?: Word | null;
   defaultCategory?: string;
+  /** Existing category names, offered as autocomplete so near-duplicates don't pile up. */
+  knownCategories?: string[];
   onClose: () => void;
   onSave: (entries: WordFormData[]) => void;
 }) {
@@ -334,6 +338,23 @@ export function WordFormModal({
           )}
 
           {!splitByPos && (
+            <Field label="품사">
+              <input
+                className="input"
+                list="pos-suggestions"
+                value={form.partOfSpeech}
+                onChange={(e) => set('partOfSpeech', e.target.value)}
+                placeholder="예: 형용사 (사전 조회 시 자동으로 채워져요)"
+              />
+              <datalist id="pos-suggestions">
+                {POS_SUGGESTIONS.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+            </Field>
+          )}
+
+          {!splitByPos && (
             <Field label="뜻 *">
               <div className="flex gap-2">
                 <input className="input flex-1" value={form.meaning} onChange={(e) => set('meaning', e.target.value)} placeholder="예: 야심 있는" />
@@ -405,7 +426,23 @@ export function WordFormModal({
           )}
 
           <Field label="카테고리">
-            <input className="input" value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="예: 비즈니스" />
+            <input
+              className="input"
+              list="category-suggestions"
+              value={form.category}
+              onChange={(e) => set('category', e.target.value)}
+              placeholder="예: 비즈니스 (비우면 미분류)"
+            />
+            <datalist id="category-suggestions">
+              {knownCategories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            {form.category.trim() !== '' && !knownCategories.includes(form.category.trim()) && knownCategories.length > 0 && (
+              <span className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                새 카테고리 "{form.category.trim()}"가 만들어져요.
+              </span>
+            )}
           </Field>
           <Field label="시험 종류">
             <select className="input" value={form.examType} onChange={(e) => set('examType', e.target.value as ExamType)}>

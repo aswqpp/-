@@ -14,6 +14,8 @@ import {
   studyTotals,
   weekdayPattern,
   memoryStageDistribution,
+  examTypeMastery,
+  formatDuration,
 } from '../lib/stats';
 import { StudyHeatmap } from '../components/StudyHeatmap';
 import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
@@ -40,6 +42,7 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
   const bestStreak = useMemo(() => longestStreak(log), [log]);
   const weekday = useMemo(() => weekdayPattern(log), [log]);
   const stages = useMemo(() => memoryStageDistribution(words), [words]);
+  const examMastery = useMemo(() => examTypeMastery(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
 
   return (
@@ -77,7 +80,14 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
             value={totals.bestDayCount > 0 ? `${totals.bestDayCount}개` : '-'}
             sub={totals.bestDayDate ?? undefined}
           />
+          <Metric label="총 학습 시간" value={formatDuration(totals.totalSeconds)} />
+          <Metric label="학습일 평균 시간" value={formatDuration(totals.avgSecondsPerStudyDay)} />
         </div>
+        {totals.totalSeconds === 0 && totals.studyDays > 0 && (
+          <p className="mt-2 text-[11px] text-slate-400">
+            학습 시간은 이번 업데이트부터 기록돼요. 이전 기록에는 시간이 없어 0으로 표시됩니다.
+          </p>
+        )}
       </Card>
 
       <Card>
@@ -105,6 +115,12 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       <Card>
         <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">카테고리별 숙련도</p>
         <CategoryMasteryBars data={catMastery} />
+      </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">시험 종류별 숙련도</p>
+        <p className="mb-3 text-xs text-slate-400">어느 시험 어휘가 약한지 비교해볼 수 있어요.</p>
+        <CategoryMasteryBars data={examMastery.map((e) => ({ ...e, category: e.examType }))} />
       </Card>
 
       <Card>
@@ -176,26 +192,54 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       </Card>
 
       <Card className="bg-slate-50 dark:bg-slate-900/60">
-        <p className="mb-2 text-xs font-bold text-slate-600 dark:text-slate-300">난이도는 이렇게 계산돼요</p>
-        <div className="overflow-x-auto">
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도 계산 방식</p>
+
+        <div className="mt-2 overflow-x-auto">
           <code className="block whitespace-nowrap rounded-lg bg-white px-3 py-2 text-[11px] text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            보정 오답률 = (틀린 횟수 + 1) ÷ (전체 시도 + 2)
+            보정 오답률 = (틀린 횟수 + 1) ÷ (전체 시도 횟수 + 2)
           </code>
         </div>
-        <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-          <li>
-            · <b className="text-rose-500">어려움</b> = {HARD_AT} 이상 &nbsp;
-            · <b className="text-amber-500">보통</b> = {EASY_AT} 초과 {HARD_AT} 미만 &nbsp;
-            · <b className="text-emerald-500">쉬움</b> = {EASY_AT} 이하
-          </li>
-          <li>· 한 번도 풀지 않은 단어는 <b>미평가 (-)</b>예요. 보통과 다르게, 아직 알 수 없다는 뜻이에요.</li>
-          <li>
-            · 분자·분모에 1과 2를 더하는 건 <b>보정</b>이에요. 그냥 나누면 한 번 틀렸을 때 곧바로 100%가 되어 난이도가
-            튀기 때문에, 기록이 적을수록 중간값 쪽으로 당겨서 흔들림을 줄여요.
-          </li>
-          <li>· 예: 3번 맞고 3번 틀림 → (3+1)÷(6+2) = 0.50 → 보통 / 5번 맞고 0번 틀림 → 1÷7 ≈ 0.14 → 쉬움</li>
+        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+          이 값을 기준으로 난이도를 다음과 같이 구분한다.
+        </p>
+
+        <dl className="mt-2 space-y-1 text-[11px] leading-relaxed">
+          <Rule term="어려움" tone="text-rose-500" desc={`${HARD_AT} 이상`} />
+          <Rule term="보통" tone="text-amber-500" desc={`${EASY_AT} 초과 ~ ${HARD_AT} 미만`} />
+          <Rule term="쉬움" tone="text-emerald-500" desc={`${EASY_AT} 이하`} />
+          <Rule
+            term="미평가(-)"
+            tone="text-slate-400"
+            desc="한 번도 풀지 않은 단어. '보통'이 아니라 '아직 판단할 데이터가 없음'을 의미함."
+          />
+        </dl>
+
+        <p className="mt-3 text-xs font-bold text-slate-600 dark:text-slate-300">왜 +1, +2를 더하는가</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          시도 횟수가 적을 때 결과가 극단적으로 튀는 것을 막기 위한 보정이다. 단순히 (틀린 횟수 ÷ 전체 시도)로
+          계산하면, 딱 한 번 풀고 틀린 단어는 곧바로 오답률 100%가 되어버린다. 데이터가 거의 없는데도 "가장 어려운
+          단어"로 분류되는 셈이다.
+        </p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          그래서 분자에 1, 분모에 2를 더해 계산 결과를 중간값(0.5) 쪽으로 당긴다. 시도 횟수가 적을수록 이 보정의
+          영향이 크고, 시도 횟수가 많아질수록 실제 정답률에 가까워진다.
+        </p>
+
+        <p className="mt-3 text-xs font-bold text-slate-600 dark:text-slate-300">예시</p>
+        <ul className="mt-1 space-y-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          <li>· 3번 맞고 3번 틀림 → (3+1) ÷ (6+2) = 0.50 → <b className="text-amber-500">보통</b></li>
+          <li>· 5번 맞고 0번 틀림 → (0+1) ÷ (5+2) ≈ 0.14 → <b className="text-emerald-500">쉬움</b></li>
         </ul>
       </Card>
+    </div>
+  );
+}
+
+function Rule({ term, tone, desc }: { term: string; tone: string; desc: string }) {
+  return (
+    <div className="flex gap-1.5">
+      <dt className={`shrink-0 font-bold ${tone}`}>{term}:</dt>
+      <dd className="text-slate-500 dark:text-slate-400">{desc}</dd>
     </div>
   );
 }

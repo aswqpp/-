@@ -130,7 +130,7 @@ export function useAppState() {
     }));
   }, []);
 
-  const logSession = useCallback((studied: number, correct: number, wrong: number) => {
+  const logSession = useCallback((studied: number, correct: number, wrong: number, seconds = 0) => {
     setState((s) => {
       const today = todayIso();
       const idx = s.log.findIndex((l) => l.date === today);
@@ -141,9 +141,16 @@ export function useAppState() {
           studiedCount: log[idx].studiedCount + studied,
           correctCount: log[idx].correctCount + correct,
           wrongCount: log[idx].wrongCount + wrong,
+          studySeconds: log[idx].studySeconds + Math.max(0, Math.round(seconds)),
         };
       } else {
-        log.push({ date: today, studiedCount: studied, correctCount: correct, wrongCount: wrong });
+        log.push({
+          date: today,
+          studiedCount: studied,
+          correctCount: correct,
+          wrongCount: wrong,
+          studySeconds: Math.max(0, Math.round(seconds)),
+        });
       }
       return { ...s, log };
     });

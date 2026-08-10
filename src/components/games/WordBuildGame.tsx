@@ -42,7 +42,7 @@ export default function WordBuildGame({ app, pool, onExit }: { app: UseAppState;
         app.gradeWord(w.id, gotIt ? QUALITY_CORRECT : QUALITY_INCORRECT);
       }
       const correctCount = found.size;
-      app.logSession(targetWords.length, correctCount, targetWords.length - correctCount);
+      app.logSession(targetWords.length, correctCount, targetWords.length - correctCount, TIME_LIMIT - timeLeft);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ended]);
