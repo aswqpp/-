@@ -148,6 +148,8 @@ function normalizeSettings(raw: unknown): AppSettings {
     darkMode: r.darkMode === true,
     flashcardFrontIsWord: r.flashcardFrontIsWord !== false,
     dailyGoal: Math.min(500, Math.max(1, goal)),
+    autoSpeak: r.autoSpeak !== false,
+    autoSpeakExample: r.autoSpeakExample === true,
   };
 }
 

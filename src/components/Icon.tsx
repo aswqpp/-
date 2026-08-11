@@ -25,7 +25,9 @@ export type IconName =
   | 'star'
   | 'folder'
   | 'settings'
-  | 'note';
+  | 'note'
+  | 'formula'
+  | 'brain';
 
 const paths: Record<IconName, ReactElement> = {
   home: <path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />,
@@ -110,6 +112,21 @@ const paths: Record<IconName, ReactElement> = {
     <>
       <path d="M6 3.5h9L19.5 8v12a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z" />
       <path d="M14.5 3.5V8H19M8.5 12h7M8.5 16h4.5" />
+    </>
+  ),
+  // Divider bar with a numerator and denominator dot — reads as "a formula".
+  formula: (
+    <>
+      <path d="M5 12h14" />
+      <circle cx="12" cy="7.5" r="1.6" />
+      <circle cx="12" cy="16.5" r="1.6" />
+    </>
+  ),
+  brain: (
+    <>
+      <path d="M12 5.5v13" />
+      <path d="M12 7a3 3 0 0 0-5.5 1.7A2.6 2.6 0 0 0 5 11a2.6 2.6 0 0 0 1.2 2.2A3 3 0 0 0 12 16" />
+      <path d="M12 7a3 3 0 0 1 5.5 1.7A2.6 2.6 0 0 1 19 11a2.6 2.6 0 0 1-1.2 2.2A3 3 0 0 1 12 16" />
     </>
   ),
 };

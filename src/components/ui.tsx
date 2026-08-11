@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, PointerEventHandler, PropsWithChildren, ReactNode } from 'react';
 import type { DifficultyLevel } from '../types';
 import { DIFFICULTY_LABEL } from '../lib/difficulty';
 import { Icon } from './Icon';
@@ -7,9 +7,18 @@ export function Card({
   children,
   className = '',
   padding = 'p-4',
-}: PropsWithChildren<{ className?: string; padding?: string }>) {
+  onPointerDown,
+  onPointerEnter,
+}: PropsWithChildren<{
+  className?: string;
+  padding?: string;
+  onPointerDown?: PointerEventHandler<HTMLDivElement>;
+  onPointerEnter?: PointerEventHandler<HTMLDivElement>;
+}>) {
   return (
     <div
+      onPointerDown={onPointerDown}
+      onPointerEnter={onPointerEnter}
       className={`rounded-2xl border border-slate-200 bg-white ${padding} shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
       {children}

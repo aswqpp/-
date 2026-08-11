@@ -1,18 +1,24 @@
+import { useMemo } from 'react';
 import type { Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card, Button, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { computeStreak, getTodayEntry } from '../lib/stats';
+import { computeStreak, getTodayEntry, weakWords } from '../lib/stats';
+import { atRiskWords } from '../lib/memory';
 import { GoalRing } from '../components/GoalRing';
+
+const WEAK_WORDS_TOP_N = 5;
 
 export default function HomePage({
   app,
   dueCount,
   onNavigate,
+  onStartReview,
 }: {
   app: UseAppState;
   dueCount: number;
   onNavigate: (s: Screen) => void;
+  onStartReview: (wordIds: string[]) => void;
 }) {
   const { words, log } = app.state;
   const streak = computeStreak(log);
@@ -21,6 +27,9 @@ export default function HomePage({
   const correctToday = today?.correctCount ?? 0;
   const wrongToday = today?.wrongCount ?? 0;
   const accuracyToday = correctToday + wrongToday > 0 ? Math.round((correctToday / (correctToday + wrongToday)) * 100) : null;
+
+  const weak = useMemo(() => weakWords(words, WEAK_WORDS_TOP_N), [words]);
+  const atRisk = useMemo(() => atRiskWords(words), [words]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,17 +48,31 @@ export default function HomePage({
           <GoalRing done={studiedToday} goal={app.state.settings.dailyGoal} />
         </div>
 
-        <div className="mt-4 flex gap-2">
+        {/* Three shortcuts on one row: nowrap + smaller type keeps 취약 단어 on one line. */}
+        <div className="mt-4 flex gap-2 [&_button]:whitespace-nowrap [&_button]:px-2 [&_button]:text-xs">
           <Button
             variant="secondary"
             className="flex-1 bg-white text-indigo-700 hover:bg-indigo-50"
             onClick={() => onNavigate('study')}
             disabled={dueCount === 0 && words.length === 0}
           >
-            <Icon name="cards" className="h-4 w-4" /> 학습 시작
+            <Icon name="cards" className="h-4 w-4" /> 학습
           </Button>
-          <Button variant="secondary" className="flex-1 bg-white/15 text-white hover:bg-white/25" onClick={() => onNavigate('quiz')}>
+          <Button
+            variant="secondary"
+            className="flex-1 bg-white/15 text-white hover:bg-white/25"
+            onClick={() => onNavigate('quiz')}
+            disabled={words.length < 2}
+          >
             <Icon name="quiz" className="h-4 w-4" /> 퀴즈
+          </Button>
+          <Button
+            variant="secondary"
+            className="flex-1 bg-white/15 text-white hover:bg-white/25"
+            onClick={() => onStartReview(weak.map((w) => w.word.id))}
+            disabled={weak.length === 0}
+          >
+            <Icon name="flame" className="h-4 w-4" /> 취약 단어
           </Button>
         </div>
       </Card>
@@ -68,6 +91,61 @@ export default function HomePage({
           <p className="mt-1 text-xs text-slate-400">전체 단어 수</p>
         </Card>
       </div>
+
+      {atRisk.length > 0 && (
+        <button
+          onClick={() => onStartReview(atRisk.slice(0, 20).map((w) => w.id))}
+          className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-left dark:border-rose-900 dark:bg-rose-950/50"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-500 dark:bg-rose-900/60">
+            <Icon name="clock" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-rose-700 dark:text-rose-300">망각 위험군 {atRisk.length}개</span>
+            <span className="block text-[11px] text-rose-500/80 dark:text-rose-400/80">
+              마지막 복습 이후 시간이 지나 기억이 흐려질 때가 됐어요. 눌러서 바로 복습하기.
+            </span>
+          </span>
+          <Icon name="chevron-right" className="h-4 w-4 shrink-0 text-rose-400" />
+        </button>
+      )}
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">취약 단어 Top {WEAK_WORDS_TOP_N}</p>
+          {weak.length > 0 && (
+            <button
+              onClick={() => onStartReview(weak.map((w) => w.word.id))}
+              className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              전체 복습하기
+            </button>
+          )}
+        </div>
+        {weak.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-400">아직 오답 데이터가 없어요.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {weak.map((w) => (
+              <div
+                key={w.word.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{w.word.word}</p>
+                  <p className="truncate text-xs text-slate-400">{w.word.meaning}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone="rose">오답률 {Math.round(w.wrongRate * 100)}%</Badge>
+                  <Button variant="secondary" className="px-2.5 py-1.5 text-xs" onClick={() => onStartReview([w.word.id])}>
+                    복습
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">빠른 이동</p>

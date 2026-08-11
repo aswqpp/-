@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DifficultyLevel, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import {
@@ -32,6 +32,10 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Word | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  /** While dragging: whether the gesture is adding to or removing from the selection. */
+  const dragIntentRef = useRef<boolean | null>(null);
 
   const folders = useMemo(() => {
     const map = new Map<string, Word[]>();
@@ -122,6 +126,81 @@ export default function WordsPage({ app }: { app: UseAppState }) {
   function handleDelete(id: string) {
     if (confirm('이 단어를 삭제할까요?')) app.deleteWord(id);
   }
+
+  function setSelected(id: string, next: boolean) {
+    setSelectedIds((prev) => {
+      if (prev.has(id) === next) return prev;
+      const copy = new Set(prev);
+      if (next) copy.add(id);
+      else copy.delete(id);
+      return copy;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    dragIntentRef.current = null;
+  }
+
+  function handleBulkDelete() {
+    const ids = filtered.filter((w) => selectedIds.has(w.id)).map((w) => w.id);
+    if (ids.length === 0) return;
+    if (!confirm(`선택한 단어 ${ids.length}개를 삭제할까요? 되돌릴 수 없어요.`)) return;
+    app.deleteWords(ids);
+    exitSelectMode();
+  }
+
+  const selectedInView = filtered.filter((w) => selectedIds.has(w.id)).length;
+  const allInViewSelected = filtered.length > 0 && selectedInView === filtered.length;
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const copy = new Set(prev);
+      for (const w of filtered) {
+        if (allInViewSelected) copy.delete(w.id);
+        else copy.add(w.id);
+      }
+      return copy;
+    });
+  }
+
+  /**
+   * Desktop drag-select. The first row pressed decides the direction — press an
+   * unselected row and the drag selects, press a selected one and it clears —
+   * so the same gesture undoes itself.
+   */
+  function startDrag(w: Word) {
+    if (!selectMode) return;
+    const next = !selectedIds.has(w.id);
+    dragIntentRef.current = next;
+    setSelected(w.id, next);
+  }
+
+  function dragOver(w: Word) {
+    if (!selectMode || dragIntentRef.current === null) return;
+    setSelected(w.id, dragIntentRef.current);
+  }
+
+  // Leaving the folder or changing the search means the selection no longer refers
+  // to anything on screen, so it is dropped rather than silently kept.
+  useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, [selectedFolder, search]);
+
+  useEffect(() => {
+    if (!selectMode) return;
+    const end = () => {
+      dragIntentRef.current = null;
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    return () => {
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+  }, [selectMode]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -239,6 +318,40 @@ export default function WordsPage({ app }: { app: UseAppState }) {
             </div>
           </div>
 
+          {filtered.length > 0 &&
+            (selectMode ? (
+              <div className="sticky top-[57px] z-10 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-950">
+                <label className="flex items-center gap-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                  <input
+                    type="checkbox"
+                    checked={allInViewSelected}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 accent-indigo-600"
+                  />
+                  전체 선택
+                </label>
+                <span className="text-xs text-indigo-500 dark:text-indigo-400">{selectedInView}개 선택됨</span>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="danger" className="px-3 py-1.5 text-xs" onClick={handleBulkDelete} disabled={selectedInView === 0}>
+                    <Icon name="trash" className="h-3.5 w-3.5" /> 삭제
+                  </Button>
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={exitSelectMode}>
+                    취소
+                  </Button>
+                </div>
+                <p className="w-full text-[11px] text-indigo-500/80 dark:text-indigo-400/80">
+                  PC에서는 카드를 누른 채 드래그하면 여러 개를 한 번에 선택할 수 있어요.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="self-start text-xs font-semibold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                여러 개 선택
+              </button>
+            ))}
+
           {filtered.length === 0 ? (
             <EmptyState
               title="조건에 맞는 단어가 없어요"
@@ -252,8 +365,30 @@ export default function WordsPage({ app }: { app: UseAppState }) {
           ) : (
             <div className="flex flex-col gap-2">
               {filtered.map((w) => (
-                <Card key={w.id} padding="p-3">
+                <Card
+                  key={w.id}
+                  padding="p-3"
+                  className={
+                    selectMode
+                      ? `select-none ${
+                          selectedIds.has(w.id) ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-600 dark:bg-indigo-950/40' : ''
+                        }`
+                      : ''
+                  }
+                  onPointerDown={selectMode ? () => startDrag(w) : undefined}
+                  onPointerEnter={selectMode ? () => dragOver(w) : undefined}
+                >
                   <div className="flex items-start justify-between gap-2">
+                    {selectMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(w.id)}
+                        onChange={(e) => setSelected(w.id, e.target.checked)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={`${w.word} 선택`}
+                        className="mt-1 h-4 w-4 shrink-0 accent-indigo-600"
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <FavoriteStarButton
@@ -298,7 +433,8 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                         {isDue(w) && <Badge tone="rose">복습 필요</Badge>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1">
+                    {/* Row actions step aside in select mode: a tap there is meant for the selection. */}
+                    <div className={`flex shrink-0 gap-1 ${selectMode ? 'hidden' : ''}`}>
                       <button
                         onClick={() => openEdit(w)}
                         aria-label="수정"

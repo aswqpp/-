@@ -8,6 +8,8 @@ import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
 import { getDueWords } from '../lib/srs';
+import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
+import { RetentionBadge } from '../components/RetentionBadge';
 
 type Phase = 'setup' | 'active' | 'done';
 
@@ -38,7 +40,8 @@ export default function StudyPage({
   const cardShownRef = useRef(Date.now());
 
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
-  const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
+  // Most-faded first: a word 3 weeks past its due date matters more than one due today.
+  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords)), [scopedWords]);
 
   function start(list: Word[], focused = false) {
     if (list.length === 0) return;
@@ -60,6 +63,26 @@ export default function StudyPage({
     start(targeted, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingWordIds]);
+
+  const activeWord = phase === 'active' ? queue[index] : undefined;
+  const { autoSpeak, autoSpeakExample } = app.state.settings;
+
+  // Reads the prompt aloud when a new card appears — but only when the prompt is the
+  // English word. With the meaning on the front, speaking would hand over the answer.
+  useEffect(() => {
+    if (!activeWord || !supported || !autoSpeak || !frontIsWord) return;
+    speak(activeWord.word);
+  }, [activeWord, supported, autoSpeak, frontIsWord, speak]);
+
+  // Once the card is flipped the answer is already visible, so anything goes.
+  useEffect(() => {
+    if (!flipped || !activeWord || !supported || !autoSpeak) return;
+    const parts = [
+      frontIsWord ? null : activeWord.word,
+      autoSpeakExample && activeWord.example ? activeWord.example : null,
+    ].filter((p): p is string => !!p);
+    if (parts.length > 0) speak(parts.join('. '));
+  }, [flipped, activeWord, supported, autoSpeak, autoSpeakExample, frontIsWord, speak]);
 
   function grade(know: boolean) {
     const word = queue[index];
@@ -104,8 +127,15 @@ export default function StudyPage({
 
             <Card>
               <p className="text-sm text-slate-500">범위 내 전체 단어로 자유 학습</p>
-              <p className="mt-1 text-xs text-slate-400">복습 예정과 상관없이 {scopedWords.length}개 단어를 학습해요.</p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={() => start(shuffle(scopedWords))} disabled={scopedWords.length === 0}>
+              <p className="mt-1 text-xs text-slate-400">
+                복습 예정과 상관없이 {scopedWords.length}개 단어를 학습해요. 오래 안 본 단어가 먼저 나올 확률이 높아요.
+              </p>
+              <Button
+                variant="secondary"
+                className="mt-3 w-full"
+                onClick={() => start(weightedSample(scopedWords, scopedWords.length))}
+                disabled={scopedWords.length === 0}
+              >
                 자유 학습 시작
               </Button>
             </Card>
@@ -181,6 +211,7 @@ export default function StudyPage({
       <div className="flex items-center justify-center gap-2">
         <FavoriteStarButton active={word.favorite} onToggle={() => app.updateWord(word.id, { favorite: !word.favorite })} className="h-5 w-5" />
         <DifficultyBadge value={deriveDifficulty(word.srs)} wrongRate={wrongRateDisplay(word.srs)} />
+        <RetentionBadge value={predictedRetention(word)} />
       </div>
 
       <div className="flip-scene mt-1">
@@ -252,11 +283,3 @@ export default function StudyPage({
   );
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}

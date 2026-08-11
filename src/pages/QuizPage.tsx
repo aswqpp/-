@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { QuizType, ReviewDirection, ReviewMode, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyBadge, FavoriteStarButton } from '../components/ui';
@@ -8,10 +8,11 @@ import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
 import { getDueWords } from '../lib/srs';
+import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
+import { RetentionBadge } from '../components/RetentionBadge';
 import {
   buildQuiz,
   normalizeSpelling,
-  shuffleArray,
   answerField,
   promptField,
   type QuizQuestion,
@@ -64,7 +65,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
 
   const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
-  const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
+  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords)), [scopedWords]);
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice', 'listening']);
@@ -94,7 +95,9 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function start(pool: typeof words) {
     if (pool.length === 0 || selectedTypes.length === 0) return;
     questionShownRef.current = Date.now();
-    const list = shuffleArray(pool).slice(0, plannedCount(pool.length));
+    // Weighted rather than uniform: words that have gone longest without a review
+    // are the ones worth asking about.
+    const list = weightedSample(pool, plannedCount(pool.length));
     setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
     setCorrect(0);
@@ -106,6 +109,27 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   }
 
   const current = questions[index];
+  const { autoSpeak, autoSpeakExample } = app.state.settings;
+
+  /**
+   * Auto-plays the prompt. Listening questions are the point of the mode, and
+   * word→meaning shows the word anyway. Spelling and meaning→word are excluded:
+   * the word *is* the answer there, so reading it aloud would give it away.
+   */
+  useEffect(() => {
+    if (phase !== 'active' || !current || !supported || !autoSpeak) return;
+    const givesAwayAnswer =
+      current.type === 'spelling' || (current.type === 'multiple-choice' && current.direction === 'meaning-to-word');
+    if (givesAwayAnswer) return;
+    speak(current.word.word);
+  }, [phase, current, supported, autoSpeak, speak]);
+
+  // After the answer is revealed the word is on screen, so the example can follow.
+  useEffect(() => {
+    if (!answered || !current || !supported || !autoSpeak || !autoSpeakExample) return;
+    if (!current.word.example) return;
+    speak(current.word.example);
+  }, [answered, current, supported, autoSpeak, autoSpeakExample, speak]);
 
   function submitAnswer(isCorrect: boolean) {
     if (answered) return;
@@ -304,6 +328,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
           <Badge tone="indigo">{QUIZ_TYPE_LABEL[current.type]}</Badge>
           <div className="flex items-center gap-2">
             <DifficultyBadge value={deriveDifficulty(liveWord.srs)} wrongRate={wrongRateDisplay(liveWord.srs)} />
+            <RetentionBadge value={predictedRetention(liveWord)} />
             <FavoriteStarButton active={liveWord.favorite} onToggle={() => app.updateWord(liveWord.id, { favorite: !liveWord.favorite })} className="h-4 w-4" />
           </div>
         </div>

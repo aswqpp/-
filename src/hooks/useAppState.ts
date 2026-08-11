@@ -125,6 +125,16 @@ export function useAppState() {
     [updateWords]
   );
 
+  /** Deletes a whole selection in one update, so the list repaints once. */
+  const deleteWords = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      const doomed = new Set(ids);
+      updateWords((s) => ({ ...s, words: s.words.filter((w) => !doomed.has(w.id)) }));
+    },
+    [updateWords]
+  );
+
   /**
    * Records one attempt. `opts.mode` decides whether the response time is graded,
    * and `opts.ms` should be passed even for modes that ignore it — the study-time
@@ -183,6 +193,7 @@ export function useAppState() {
     addWordsBulk,
     updateWord,
     deleteWord,
+    deleteWords,
     gradeWord,
     gradeWords,
     toggleDarkMode,

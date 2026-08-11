@@ -88,6 +88,33 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
         </div>
 
         <section className="mb-5">
+          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">화면</p>
+          <ToggleRow
+            label="다크 모드"
+            hint="어두운 배경으로 전환해요."
+            checked={settings.darkMode}
+            onChange={app.toggleDarkMode}
+          />
+        </section>
+
+        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">발음 자동 재생</p>
+          <ToggleRow
+            label="문제 단어 자동 발음"
+            hint="플래시카드와 퀴즈에서 단어가 나오면 바로 읽어줘요. 답이 단어 자체인 문제(스펠링·뜻→단어)에서는 재생하지 않아요."
+            checked={settings.autoSpeak}
+            onChange={(v) => app.updateSettings({ autoSpeak: v })}
+          />
+          <ToggleRow
+            label="예문도 함께 읽기"
+            hint="정답을 확인한 뒤 예문을 이어서 읽어줘요."
+            checked={settings.autoSpeakExample}
+            disabled={!settings.autoSpeak}
+            onChange={(v) => app.updateSettings({ autoSpeakExample: v })}
+          />
+        </section>
+
+        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
           <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">하루 학습 목표</p>
           <div className="flex items-center gap-2">
             <input
@@ -105,7 +132,7 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
           <p className="mt-1.5 text-[11px] text-slate-400">홈 화면에 오늘 진행률로 표시돼요.</p>
         </section>
 
-        <section className="border-t border-slate-100 pt-4 dark:border-slate-800">
+        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">데이터 백업</p>
           <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
             단어와 학습 기록은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니,
@@ -173,12 +200,46 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">앱 정보</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">ASWQPP · 오프라인 사용 가능</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">IbeOm · 오프라인 사용 가능</p>
             </div>
             <Badge tone="indigo">PWA</Badge>
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={`flex items-start justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-800 ${
+        disabled ? 'opacity-50' : ''
+      } ${hint ? 'mb-2' : ''}`}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm text-slate-600 dark:text-slate-300">{label}</span>
+        {hint && <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">{hint}</span>}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-5 w-5 shrink-0 accent-indigo-600"
+      />
+    </label>
   );
 }

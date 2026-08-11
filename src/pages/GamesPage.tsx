@@ -5,6 +5,7 @@ import { Card, EmptyState, Button } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
+import { weightedSample } from '../lib/memory';
 import AnagramGame from '../components/games/AnagramGame';
 import WordBuildGame from '../components/games/WordBuildGame';
 import MatchGame from '../components/games/MatchGame';
@@ -16,7 +17,12 @@ export default function GamesPage({ app }: { app: UseAppState; onNavigate: (s: S
   const { words } = app.state;
 
   const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
-  const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
+  // Games pick from the front of this list, so bias it toward the words that have
+  // gone longest without a review rather than handing over a raw filtered list.
+  const scopedWords = useMemo(() => {
+    const inScope = applyScope(words, scope);
+    return weightedSample(inScope, inScope.length);
+  }, [words, scope]);
 
   if (words.length < 4) {
     return (

@@ -2,7 +2,7 @@ import type { AppState, Word } from '../types';
 import { normalizeState, serializeState } from './storage';
 import { STATE_VERSION } from './srs';
 
-const BACKUP_FORMAT = 'aswqpp-backup';
+const BACKUP_FORMAT = 'ibeom-backup';
 
 interface BackupFile {
   format: string;
@@ -26,7 +26,7 @@ export function buildBackup(state: AppState): BackupFile {
 
 /** Triggers a download of the whole app state as a JSON file. */
 export function downloadBackup(state: AppState): string {
-  const fileName = `aswqpp-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const fileName = `ibeom-backup-${new Date().toISOString().slice(0, 10)}.json`;
   const blob = new Blob([JSON.stringify(buildBackup(state), null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

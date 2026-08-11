@@ -1,11 +1,12 @@
-import { MEMORY_STAGE_LABEL, type MemoryStage } from '../lib/stats';
+import { MEMORY_STAGES, MEMORY_STAGE_DESC, MEMORY_STAGE_LABEL, type MemoryStage } from '../lib/memory';
 
-const STAGES: { key: MemoryStage; barClass: string; dotClass: string; hint: string }[] = [
-  { key: 'new', barClass: 'bg-slate-300 dark:bg-slate-600', dotClass: 'bg-slate-300 dark:bg-slate-600', hint: '아직 한 번도 풀지 않음' },
-  { key: 'learning', barClass: 'bg-amber-400', dotClass: 'bg-amber-400', hint: '이제 막 외우는 중' },
-  { key: 'reviewing', barClass: 'bg-indigo-400', dotClass: 'bg-indigo-400', hint: '복습 주기가 늘어나는 중' },
-  { key: 'mastered', barClass: 'bg-emerald-500', dotClass: 'bg-emerald-500', hint: '3주 이상 간격으로 안정됨' },
-];
+const STAGE_COLOR: Record<MemoryStage, { bar: string; dot: string }> = {
+  new: { bar: 'bg-slate-300 dark:bg-slate-600', dot: 'bg-slate-300 dark:bg-slate-600' },
+  learning: { bar: 'bg-amber-400', dot: 'bg-amber-400' },
+  reviewing: { bar: 'bg-indigo-400', dot: 'bg-indigo-400' },
+  mastered: { bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  atRisk: { bar: 'bg-rose-500', dot: 'bg-rose-500' },
+};
 
 export function MemoryStageBar({ data, total }: { data: Record<MemoryStage, number>; total: number }) {
   if (total === 0) {
@@ -15,14 +16,14 @@ export function MemoryStageBar({ data, total }: { data: Record<MemoryStage, numb
   return (
     <div className="flex flex-col gap-3">
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        {STAGES.map((s) => {
-          const pct = (data[s.key] / total) * 100;
+        {MEMORY_STAGES.map((key) => {
+          const pct = (data[key] / total) * 100;
           if (pct === 0) return null;
           return (
             <div
-              key={s.key}
-              title={`${MEMORY_STAGE_LABEL[s.key]} ${data[s.key]}개`}
-              className={`h-full ${s.barClass}`}
+              key={key}
+              title={`${MEMORY_STAGE_LABEL[key]} ${data[key]}개`}
+              className={`h-full ${STAGE_COLOR[key].bar}`}
               // 2px of surface between segments so neighbours read apart without a stroke.
               style={{ width: `${pct}%`, marginRight: 2 }}
             />
@@ -30,21 +31,25 @@ export function MemoryStageBar({ data, total }: { data: Record<MemoryStage, numb
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-        {STAGES.map((s) => (
-          <div key={s.key} className="flex items-baseline gap-2 text-xs">
-            <span className={`h-2.5 w-2.5 shrink-0 translate-y-0.5 rounded-full ${s.dotClass}`} />
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{MEMORY_STAGE_LABEL[s.key]}</span>
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {MEMORY_STAGES.map((key) => (
+          <div key={key} className="flex items-baseline gap-2 text-xs">
+            <span className={`h-2.5 w-2.5 shrink-0 translate-y-0.5 rounded-full ${STAGE_COLOR[key].dot}`} />
+            <span className="font-semibold text-slate-600 dark:text-slate-300">{MEMORY_STAGE_LABEL[key]}</span>
             <span className="ml-auto tabular-nums text-slate-400">
-              {data[s.key]} ({total ? Math.round((data[s.key] / total) * 100) : 0}%)
+              {data[key]} ({Math.round((data[key] / total) * 100)}%)
             </span>
           </div>
         ))}
       </div>
 
-      <p className="text-[11px] leading-relaxed text-slate-400">
-        {STAGES.map((s) => `${MEMORY_STAGE_LABEL[s.key]}: ${s.hint}`).join(' · ')}
-      </p>
+      <ul className="space-y-0.5 text-[11px] leading-relaxed text-slate-400">
+        {MEMORY_STAGES.map((key) => (
+          <li key={key}>
+            · <span className="font-semibold">{MEMORY_STAGE_LABEL[key]}</span> — {MEMORY_STAGE_DESC[key]}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

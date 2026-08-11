@@ -21,6 +21,8 @@ export function buildInitialState(): AppState {
         typeof window !== 'undefined' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false) : false,
       flashcardFrontIsWord: true,
       dailyGoal: DEFAULT_DAILY_GOAL,
+      autoSpeak: true,
+      autoSpeakExample: false,
     },
   };
 }

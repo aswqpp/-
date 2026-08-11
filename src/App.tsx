@@ -9,6 +9,7 @@ import StudyPage from './pages/StudyPage';
 import QuizPage from './pages/QuizPage';
 import GamesPage from './pages/GamesPage';
 import StatsPage from './pages/StatsPage';
+import CategoryMasteryPage from './pages/CategoryMasteryPage';
 import { SettingsSheet } from './components/SettingsSheet';
 
 const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
@@ -43,30 +44,24 @@ export default function App() {
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white dark:bg-indigo-500">
             <Icon name="cards" className="h-5 w-5" />
           </span>
-          ASWQPP
+          IbeOm
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            aria-label="설정"
-            onClick={() => setSettingsOpen(true)}
-            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <Icon name="settings" className="h-5 w-5" />
-          </button>
-          <button
-            aria-label="다크모드 전환"
-            onClick={app.toggleDarkMode}
-            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <Icon name={app.state.settings.darkMode ? 'sun' : 'moon'} className="h-5 w-5" />
-          </button>
-        </div>
+        {/* Dark mode lives in the settings sheet now — it is a preference you set once,
+            not something worth a permanent slot in the header. */}
+        <button
+          aria-label="설정"
+          onClick={() => setSettingsOpen(true)}
+          className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <Icon name="settings" className="h-5 w-5" />
+        </button>
       </header>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:sticky sm:bottom-auto sm:top-[57px] sm:border-b sm:border-t-0">
         <div className="mx-auto flex max-w-2xl items-stretch justify-between px-1">
           {NAV_ITEMS.map((item) => {
-            const active = screen === item.screen;
+            // The category screen is reached from stats, so it keeps that tab lit.
+            const active = screen === item.screen || (item.screen === 'stats' && screen === 'categories');
             return (
               <button
                 key={item.screen}
@@ -103,7 +98,9 @@ export default function App() {
       )}
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-4 sm:pb-8">
-        {screen === 'home' && <HomePage app={app} dueCount={dueCount} onNavigate={setScreen} />}
+        {screen === 'home' && (
+          <HomePage app={app} dueCount={dueCount} onNavigate={setScreen} onStartReview={startFocusedReview} />
+        )}
         {screen === 'words' && <WordsPage app={app} />}
         {screen === 'study' && (
           <StudyPage
@@ -115,7 +112,8 @@ export default function App() {
         )}
         {screen === 'quiz' && <QuizPage app={app} onNavigate={setScreen} />}
         {screen === 'games' && <GamesPage app={app} onNavigate={setScreen} />}
-        {screen === 'stats' && <StatsPage app={app} onStartReview={startFocusedReview} />}
+        {screen === 'stats' && <StatsPage app={app} onNavigate={setScreen} />}
+        {screen === 'categories' && <CategoryMasteryPage app={app} onBack={() => setScreen('stats')} />}
       </main>
 
       {settingsOpen && <SettingsSheet app={app} onClose={() => setSettingsOpen(false)} />}

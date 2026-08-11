@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
-import { Card, Badge, Button } from '../components/ui';
+import { Card } from '../components/ui';
 import { Icon } from '../components/Icon';
 import {
   computeStreak,
@@ -8,17 +9,16 @@ import {
   getTodayEntry,
   categoryMastery,
   difficultyDistribution,
-  weakWords,
   reviewForecast,
   longestStreak,
   studyTotals,
   weekdayPattern,
-  memoryStageDistribution,
-  examTypeMastery,
   formatDuration,
   retentionStats,
 } from '../lib/stats';
-import { StudyHeatmap } from '../components/StudyHeatmap';
+import { memoryStageDistribution } from '../lib/memory';
+import { StudyVolumeChart } from '../components/StudyVolumeChart';
+import { LearningCurveChart } from '../components/LearningCurveChart';
 import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
 import { CategoryMasteryBars } from '../components/CategoryMasteryBars';
 import { DifficultyDonut } from '../components/DifficultyDonut';
@@ -27,9 +27,9 @@ import { MemoryStageBar } from '../components/MemoryStageBar';
 import { EASY_AT, HARD_AT } from '../lib/difficulty';
 
 const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
-const WEAK_WORDS_TOP_N = 5;
+const CATEGORY_PREVIEW_COUNT = 3;
 
-export default function StatsPage({ app, onStartReview }: { app: UseAppState; onStartReview: (wordIds: string[]) => void }) {
+export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const { words, log, migration } = app.state;
   const streak = computeStreak(log);
   const accuracy = overallAccuracy(log);
@@ -37,15 +37,14 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
 
   const catMastery = useMemo(() => categoryMastery(words), [words]);
   const diffDist = useMemo(() => difficultyDistribution(words), [words]);
-  const weak = useMemo(() => weakWords(words, WEAK_WORDS_TOP_N), [words]);
   const forecast = useMemo(() => reviewForecast(words), [words]);
   const totals = useMemo(() => studyTotals(log), [log]);
   const bestStreak = useMemo(() => longestStreak(log), [log]);
   const weekday = useMemo(() => weekdayPattern(log), [log]);
   const stages = useMemo(() => memoryStageDistribution(words), [words]);
-  const examMastery = useMemo(() => examTypeMastery(words), [words]);
   const retention = useMemo(() => retentionStats(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
+  const [formulaOpen, setFormulaOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,8 +92,16 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       </Card>
 
       <Card>
-        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">날짜별 학습량</p>
-        <StudyHeatmap log={log} />
+        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">날짜별 학습량</p>
+        <StudyVolumeChart log={log} />
+      </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">누적 학습 곡선</p>
+        <p className="mb-3 text-xs text-slate-400">
+          단어가 쌓이는 속도와, 그날 문제가 얼마나 어렵게 느껴졌는지를 함께 봐요.
+        </p>
+        <LearningCurveChart words={words} />
       </Card>
 
       <Card>
@@ -140,54 +147,28 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       </Card>
 
       <Card>
-        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">카테고리별 숙련도</p>
-        <CategoryMasteryBars data={catMastery} />
-      </Card>
-
-      <Card>
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">시험 종류별 숙련도</p>
-        <p className="mb-3 text-xs text-slate-400">어느 시험 어휘가 약한지 비교해볼 수 있어요.</p>
-        <CategoryMasteryBars data={examMastery.map((e) => ({ ...e, category: e.examType }))} />
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">카테고리별 숙련도</p>
+          <button
+            onClick={() => onNavigate('categories')}
+            className="flex items-center gap-0.5 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            전체 보기 <Icon name="chevron-right" className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <CategoryMasteryBars data={catMastery.slice(0, CATEGORY_PREVIEW_COUNT)} />
+        {catMastery.length > CATEGORY_PREVIEW_COUNT && (
+          <p className="mt-2 text-[11px] text-slate-400">
+            단어가 많은 {CATEGORY_PREVIEW_COUNT}개만 보여주고 있어요. 나머지 {catMastery.length - CATEGORY_PREVIEW_COUNT}개는
+            전체 보기에서 확인하세요.
+          </p>
+        )}
       </Card>
 
       <Card>
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
         <p className="mb-3 text-xs text-slate-400">난이도는 직접 정하지 않고, 각 단어의 오답률로 자동 계산돼요.</p>
         <DifficultyDonut data={diffDist} />
-      </Card>
-
-      <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">취약 단어 Top {WEAK_WORDS_TOP_N}</p>
-          {weak.length > 0 && (
-            <button
-              onClick={() => onStartReview(weak.map((w) => w.word.id))}
-              className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
-            >
-              전체 복습하기
-            </button>
-          )}
-        </div>
-        {weak.length === 0 ? (
-          <p className="py-4 text-center text-xs text-slate-400">아직 오답 데이터가 없어요.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {weak.map((w) => (
-              <div key={w.word.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{w.word.word}</p>
-                  <p className="truncate text-xs text-slate-400">{w.word.meaning}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Badge tone="rose">오답률 {Math.round(w.wrongRate * 100)}%</Badge>
-                  <Button variant="secondary" className="px-2.5 py-1.5 text-xs" onClick={() => onStartReview([w.word.id])}>
-                    복습
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </Card>
 
       <Card>
@@ -219,8 +200,23 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
       </Card>
 
       <Card className="bg-slate-50 dark:bg-slate-900/60">
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도 계산 방식</p>
+        <button
+          onClick={() => setFormulaOpen((v) => !v)}
+          aria-expanded={formulaOpen}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+            <Icon name="formula" className="h-4 w-4" />
+          </span>
+          <span className="flex-1 text-sm font-bold text-slate-700 dark:text-slate-200">난이도 계산 방식</span>
+          <Icon
+            name="chevron-right"
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${formulaOpen ? 'rotate-90' : ''}`}
+          />
+        </button>
+        {!formulaOpen && <p className="mt-1.5 pl-9 text-[11px] text-slate-400">수식과 기준을 펼쳐서 볼 수 있어요.</p>}
 
+        <div className={formulaOpen ? 'animate-pop-in' : 'hidden'}>
         <div className="mt-2 overflow-x-auto">
           <code className="block whitespace-nowrap rounded-lg bg-white px-3 py-2 text-[11px] text-slate-700 dark:bg-slate-800 dark:text-slate-200">
             보정 오답률 = (틀린 횟수 + 1) ÷ (전체 시도 횟수 + 2)
@@ -257,6 +253,7 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
           <li>· 3번 맞고 3번 틀림 → (3+1) ÷ (6+2) = 0.50 → <b className="text-amber-500">보통</b></li>
           <li>· 5번 맞고 0번 틀림 → (0+1) ÷ (5+2) ≈ 0.14 → <b className="text-emerald-500">쉬움</b></li>
         </ul>
+        </div>
       </Card>
     </div>
   );
@@ -273,12 +270,13 @@ function Rule({ term, tone, desc }: { term: string; tone: string; desc: string }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-right">
-        <span className="font-bold tabular-nums text-slate-800 dark:text-slate-100">{value}</span>
-        {sub && <span className="ml-1 text-[10px] text-slate-400">{sub}</span>}
-      </span>
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="shrink-0 font-bold tabular-nums text-slate-800 dark:text-slate-100">{value}</span>
+      </div>
+      {/* On its own line: a long note squeezed onto the value line pushed the label into a wrap. */}
+      {sub && <p className="mt-0.5 text-right text-[10px] leading-snug text-slate-400">{sub}</p>}
     </div>
   );
 }

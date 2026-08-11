@@ -1,6 +1,9 @@
-import type { DifficultyLevel, ExamType, StudyLogEntry, Word } from '../types';
+import type { DifficultyLevel, StudyLogEntry, Word } from '../types';
 import { deriveDifficulty } from './difficulty';
-import { addDays, computeM, M_MIN_SAMPLE, todayIso } from './srs';
+import { isMastered } from './memory';
+import { addDays, computeM, M_MIN_SAMPLE, toLocalDate, todayIso } from './srs';
+
+export { isMastered };
 
 export function getTodayEntry(log: StudyLogEntry[]): StudyLogEntry | undefined {
   return log.find((l) => l.date === todayIso());
@@ -44,11 +47,6 @@ export function overallAccuracy(log: StudyLogEntry[]): number {
   const totalWrong = log.reduce((sum, l) => sum + l.wrongCount, 0);
   const total = totalCorrect + totalWrong;
   return total === 0 ? 0 : Math.round((totalCorrect / total) * 100);
-}
-
-/** A word counts as mastered once it has a solid consecutive streak and a review interval of 3+ weeks. */
-export function isMastered(word: Word): boolean {
-  return word.srs.repetitions >= 3 && word.srs.interval >= 21;
 }
 
 export interface CategoryMastery {
@@ -218,31 +216,54 @@ export function weekdayPattern(log: StudyLogEntry[]): WeekdayStat[] {
   return stats;
 }
 
-export type MemoryStage = 'new' | 'learning' | 'reviewing' | 'mastered';
-
-export const MEMORY_STAGE_LABEL: Record<MemoryStage, string> = {
-  new: '미학습',
-  learning: '학습 중',
-  reviewing: '복습 중',
-  mastered: '장기 기억',
-};
-
-/**
- * Where each word sits in the SM-2 pipeline. Distinct from difficulty: difficulty
- * says how often it is missed, this says how far the scheduler has pushed it out.
- */
-export function memoryStage(word: Word): MemoryStage {
-  const { repetitions, interval, correctCount, wrongCount } = word.srs;
-  if (correctCount + wrongCount === 0) return 'new';
-  if (interval >= 21 && repetitions >= 3) return 'mastered';
-  if (repetitions >= 2) return 'reviewing';
-  return 'learning';
+export interface LearningCurvePoint {
+  date: string;
+  /** Distinct words attempted at least once, up to and including this day. */
+  cumulativeWords: number;
+  /** Share of that day's attempts that were wrong, 0–1. */
+  wrongRate: number;
+  attempts: number;
 }
 
-export function memoryStageDistribution(words: Word[]): Record<MemoryStage, number> {
-  const dist: Record<MemoryStage, number> = { new: 0, learning: 0, reviewing: 0, mastered: 0 };
-  for (const w of words) dist[memoryStage(w)]++;
-  return dist;
+/**
+ * Two series over the same dates: how the vocabulary has grown, and how hard the
+ * material felt while it grew. Both are read out of the per-word attempt history,
+ * so days before the history existed simply aren't in the curve.
+ */
+export function learningCurve(words: Word[]): LearningCurvePoint[] {
+  const firstSeen = new Map<string, string>();
+  const perDay = new Map<string, { ok: number; ng: number }>();
+
+  for (const w of words) {
+    for (const h of w.srs.history) {
+      const date = toLocalDate(new Date(h.t));
+      const seen = firstSeen.get(w.id);
+      if (!seen || date < seen) firstSeen.set(w.id, date);
+
+      let bucket = perDay.get(date);
+      if (!bucket) {
+        bucket = { ok: 0, ng: 0 };
+        perDay.set(date, bucket);
+      }
+      if (h.ok) bucket.ok++;
+      else bucket.ng++;
+    }
+  }
+
+  const newWordsPerDay = new Map<string, number>();
+  for (const date of firstSeen.values()) {
+    newWordsPerDay.set(date, (newWordsPerDay.get(date) ?? 0) + 1);
+  }
+
+  let cumulative = 0;
+  return [...perDay.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => {
+      cumulative += newWordsPerDay.get(date) ?? 0;
+      const { ok, ng } = perDay.get(date)!;
+      const attempts = ok + ng;
+      return { date, cumulativeWords: cumulative, wrongRate: attempts ? ng / attempts : 0, attempts };
+    });
 }
 
 export interface RetentionStats {
@@ -290,28 +311,3 @@ export function retentionStats(words: Word[]): RetentionStats {
   };
 }
 
-export interface ExamTypeMastery {
-  examType: ExamType;
-  total: number;
-  mastered: number;
-  pct: number;
-}
-
-/**
- * Same shape as categoryMastery, but grouped by the exam each word is being studied for.
- * Categories are user-invented; exam type is a fixed axis, so "수능 80% / TOEIC 40%" is
- * comparable in a way category names are not.
- */
-export function examTypeMastery(words: Word[]): ExamTypeMastery[] {
-  const map = new Map<ExamType, Word[]>();
-  for (const w of words) {
-    if (!map.has(w.examType)) map.set(w.examType, []);
-    map.get(w.examType)!.push(w);
-  }
-  return Array.from(map.entries())
-    .map(([examType, list]) => {
-      const mastered = list.filter(isMastered).length;
-      return { examType, total: list.length, mastered, pct: list.length ? Math.round((mastered / list.length) * 100) : 0 };
-    })
-    .sort((a, b) => b.total - a.total);
-}

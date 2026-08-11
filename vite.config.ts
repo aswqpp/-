@@ -21,8 +21,8 @@ export default defineConfig(({ command }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'icon.svg'],
         manifest: {
-          name: 'ASWQPP - 영단어 학습',
-          short_name: 'ASWQPP',
+          name: 'IbeOm - 영단어 학습',
+          short_name: 'IbeOm',
           description: '플래시카드와 간격 반복 복습으로 영단어를 암기하는 학습 앱',
           lang: 'ko',
           // Must sit inside `base`, or the installed app opens outside its own scope.

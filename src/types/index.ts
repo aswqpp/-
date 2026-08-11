@@ -95,6 +95,10 @@ export interface AppSettings {
   flashcardFrontIsWord: boolean;
   /** Words per day the user is aiming for; drives the goal ring on the home screen. */
   dailyGoal: number;
+  /** Read the prompt word aloud as soon as a card or question appears. */
+  autoSpeak: boolean;
+  /** Also read the example sentence, once the answer is on screen. */
+  autoSpeakExample: boolean;
 }
 
 /** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */
@@ -131,4 +135,6 @@ export type Screen =
   | 'study'
   | 'quiz'
   | 'games'
-  | 'stats';
+  | 'stats'
+  /** Category mastery, split out of stats so a long category list stays readable. */
+  | 'categories';
