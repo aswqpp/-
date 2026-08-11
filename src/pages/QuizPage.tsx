@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import type { QuizType, Screen } from '../types';
+import type { QuizType, ReviewDirection, ReviewMode, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -7,7 +7,7 @@ import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
-import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
+import { getDueWords } from '../lib/srs';
 import {
   buildQuiz,
   normalizeSpelling,
@@ -30,6 +30,23 @@ const OPTION_COUNTS = [3, 4, 5];
 
 /** null = 범위 내 전체 */
 const QUESTION_COUNTS: (number | null)[] = [5, 10, 20, null];
+
+/** Each quiz type has its own response-time budget in the SRS. */
+const REVIEW_MODE_BY_QUIZ_TYPE: Record<QuizType, ReviewMode> = {
+  'multiple-choice': 'mc',
+  spelling: 'spelling',
+  listening: 'listening',
+};
+
+/**
+ * Which way the question was asked. Listening plays the word and asks for the meaning;
+ * spelling shows the meaning and asks for the word.
+ */
+function directionOf(q: QuizQuestion): ReviewDirection {
+  if (q.type === 'spelling') return 'm2w';
+  if (q.type === 'listening') return 'w2m';
+  return q.direction === 'meaning-to-word' ? 'm2w' : 'w2m';
+}
 
 function correctAnswerFor(q: QuizQuestion): string {
   if (q.type === 'listening') return q.word.meaning;
@@ -62,7 +79,8 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const [mcOptionCount, setMcOptionCount] = useState(4);
   const [questionCount, setQuestionCount] = useState<number | null>(10);
   const [customCount, setCustomCount] = useState('');
-  const sessionStartRef = useRef(0);
+  /** When the current question went on screen — graded against the mode's time limit. */
+  const questionShownRef = useRef(Date.now());
 
   function toggleType(t: QuizType) {
     setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -75,7 +93,7 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
 
   function start(pool: typeof words) {
     if (pool.length === 0 || selectedTypes.length === 0) return;
-    sessionStartRef.current = Date.now();
+    questionShownRef.current = Date.now();
     const list = shuffleArray(pool).slice(0, plannedCount(pool.length));
     setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
@@ -92,7 +110,11 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function submitAnswer(isCorrect: boolean) {
     if (answered) return;
     setAnswered(true);
-    app.gradeWord(current.word.id, isCorrect ? QUALITY_CORRECT : QUALITY_INCORRECT);
+    app.gradeWord(current.word.id, isCorrect, {
+      ms: Date.now() - questionShownRef.current,
+      mode: REVIEW_MODE_BY_QUIZ_TYPE[current.type],
+      dir: directionOf(current),
+    });
     if (isCorrect) setCorrect((c) => c + 1);
     else setWrong((w) => w + 1);
   }
@@ -100,9 +122,9 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   function nextQuestion() {
     const next = index + 1;
     if (next >= questions.length) {
-      app.logSession(questions.length, correct, wrong, (Date.now() - sessionStartRef.current) / 1000);
       setPhase('done');
     } else {
+      questionShownRef.current = Date.now();
       setIndex(next);
       setAnswered(false);
       setSelectedOption(null);

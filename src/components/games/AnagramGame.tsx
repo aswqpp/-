@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Word } from '../../types';
 import type { UseAppState } from '../../hooks/useAppState';
 import { Button, Card, ProgressBar } from '../ui';
 import { Icon } from '../Icon';
-import { QUALITY_CORRECT, QUALITY_INCORRECT } from '../../lib/srs';
 import { pickAnagramWords, scrambleWord } from '../../lib/games';
 
 type RoundState = 'playing' | 'correct' | 'revealed';
+
+/** The meaning is the hint and the answer is the spelling, so this is meaning → word. */
+const REVIEW_OPTS = { mode: 'game', dir: 'm2w' } as const;
 
 export default function AnagramGame({ app, pool, onExit }: { app: UseAppState; pool: Word[]; onExit: () => void }) {
   const [rounds] = useState<Word[]>(() => pickAnagramWords(pool, 8));
@@ -16,6 +18,7 @@ export default function AnagramGame({ app, pool, onExit }: { app: UseAppState; p
   const [roundState, setRoundState] = useState<RoundState>('playing');
   const [score, setScore] = useState(0);
   const [misses, setMisses] = useState(0);
+  const roundStartRef = useRef(Date.now());
 
   const word = rounds[index];
   const done = index >= rounds.length;
@@ -25,7 +28,7 @@ export default function AnagramGame({ app, pool, onExit }: { app: UseAppState; p
   function checkAnswer() {
     if (roundState !== 'playing') return;
     if (input.trim().toLowerCase() === word.word.toLowerCase()) {
-      app.gradeWord(word.id, QUALITY_CORRECT);
+      app.gradeWord(word.id, true, { ...REVIEW_OPTS, ms: Date.now() - roundStartRef.current });
       setScore((s) => s + 1);
       setRoundState('correct');
     } else {
@@ -35,13 +38,14 @@ export default function AnagramGame({ app, pool, onExit }: { app: UseAppState; p
 
   function reveal() {
     if (roundState !== 'playing') return;
-    app.gradeWord(word.id, QUALITY_INCORRECT);
+    app.gradeWord(word.id, false, { ...REVIEW_OPTS, ms: Date.now() - roundStartRef.current });
     setMisses((m) => m + 1);
     setRoundState('revealed');
   }
 
   function nextRound() {
     const next = index + 1;
+    roundStartRef.current = Date.now();
     setIndex(next);
     setInput('');
     setRoundState('playing');

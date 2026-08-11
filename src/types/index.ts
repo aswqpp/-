@@ -10,8 +10,38 @@ export type Difficulty = 'easy' | 'medium' | 'hard';
  */
 export type DifficultyLevel = Difficulty | 'unrated';
 
+/** Where an attempt came from. Decides whether response time is graded at all. */
+export type ReviewMode = 'mc' | 'listening' | 'spelling' | 'flashcard' | 'game';
+
+/** Which way the word was asked: word→meaning or meaning→word. */
+export type ReviewDirection = 'w2m' | 'm2w';
+
+/** One recorded attempt. The study log is derived from these. */
+export interface ReviewEvent {
+  /** ISO timestamp of the attempt */
+  t: string;
+  ok: boolean;
+  mode: ReviewMode;
+  dir: ReviewDirection;
+  /** SM-2 quality the attempt was graded with (2 = wrong, 3/4/5 = correct) */
+  q: number;
+  /** Response time in ms. Recorded even for modes that ignore it when grading. */
+  ms?: number;
+}
+
+/**
+ * Attempt counts sealed at v1 → v4 migration time. `correctCount`/`wrongCount`
+ * still include these, so never add preCount on top of them — that double-counts.
+ */
+export interface PreCount {
+  ok: number;
+  ng: number;
+  /** last review date known before the migration */
+  until: string | null;
+}
+
 export interface SrsData {
-  /** SM-2 style ease factor, >= 1.3 */
+  /** SM-2 style ease factor, clamped to [1.3, 3.0] */
   easeFactor: number;
   /** current interval in days */
   interval: number;
@@ -22,6 +52,12 @@ export interface SrsData {
   correctCount: number;
   wrongCount: number;
   lastReviewed: string | null;
+  /** Times a *mature* card (repetitions >= 2) was missed. Not the same as wrongCount. */
+  lapses: number;
+  /** Most recent attempts, newest last, capped at HISTORY_LIMIT. */
+  history: ReviewEvent[];
+  /** Present only on words carried over from the pre-history schema. */
+  preCount?: PreCount;
 }
 
 export interface Word {
@@ -61,9 +97,29 @@ export interface AppSettings {
   dailyGoal: number;
 }
 
+/** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */
+export interface MigrationInfo {
+  appliedAt: string;
+  from: number;
+  to: number;
+  /** Days on or before this date keep their pre-migration totals. */
+  logCutoff: string;
+  changes: string[];
+}
+
 export interface AppState {
   words: Word[];
+  /**
+   * Derived — rebuilt from `words[].srs.history` plus `legacyLog`. Never written
+   * to directly; `rebuildLog()` in lib/srs.ts is the single writer.
+   */
   log: StudyLogEntry[];
+  /**
+   * Frozen pre-migration totals. Migrated words have no history, so without this
+   * the heatmap and streaks would reset to zero on upgrade.
+   */
+  legacyLog: StudyLogEntry[];
+  migration?: MigrationInfo;
   settings: AppSettings;
 }
 

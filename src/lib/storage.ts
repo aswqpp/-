@@ -1,11 +1,24 @@
-import type { AppSettings, AppState, ExamType, StudyLogEntry, Word } from '../types';
-import { createInitialSrs } from './srs';
+import type {
+  AppSettings,
+  AppState,
+  ExamType,
+  MigrationInfo,
+  PreCount,
+  ReviewDirection,
+  ReviewEvent,
+  ReviewMode,
+  StudyLogEntry,
+  Word,
+} from '../types';
+import { createInitialSrs, HISTORY_LIMIT, migrateState, STATE_VERSION, withDerivedLog } from './srs';
 
 const STORAGE_KEY = 'voca-app-state-v1';
 
 export const DEFAULT_DAILY_GOAL = 20;
 
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
+const REVIEW_MODES: ReviewMode[] = ['mc', 'listening', 'spelling', 'flashcard', 'game'];
+const REVIEW_DIRECTIONS: ReviewDirection[] = ['w2m', 'm2w'];
 
 function str(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback;
@@ -26,9 +39,38 @@ function genId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** One recorded attempt. Entries without a usable timestamp are dropped — the log is keyed on it. */
+function normalizeReviewEvent(raw: unknown): ReviewEvent | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+
+  const t = str(r.t);
+  if (!t || Number.isNaN(new Date(t).getTime())) return null;
+
+  const event: ReviewEvent = {
+    t,
+    ok: r.ok === true,
+    mode: REVIEW_MODES.includes(r.mode as ReviewMode) ? (r.mode as ReviewMode) : 'flashcard',
+    dir: REVIEW_DIRECTIONS.includes(r.dir as ReviewDirection) ? (r.dir as ReviewDirection) : 'w2m',
+    q: num(r.q, r.ok === true ? 5 : 2),
+  };
+  if (typeof r.ms === 'number' && Number.isFinite(r.ms) && r.ms >= 0) event.ms = r.ms;
+  return event;
+}
+
+function normalizePreCount(raw: unknown): PreCount | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  return {
+    ok: Math.max(0, num(r.ok, 0)),
+    ng: Math.max(0, num(r.ng, 0)),
+    until: typeof r.until === 'string' ? r.until : null,
+  };
+}
+
 /**
  * Coerces one persisted/imported record into a valid Word.
- * The schema has grown over time (favorite, note, synonyms...), so payloads
+ * The schema has grown over time (favorite, note, synonyms, history...), so payloads
  * written by older builds — or hand-edited backup files — are missing fields.
  * Returns null for records too malformed to be useful.
  */
@@ -42,6 +84,13 @@ export function normalizeWord(raw: unknown): Word | null {
 
   const rawSrs = (typeof r.srs === 'object' && r.srs !== null ? r.srs : {}) as Record<string, unknown>;
   const base = createInitialSrs();
+
+  const history = Array.isArray(rawSrs.history)
+    ? rawSrs.history
+        .map(normalizeReviewEvent)
+        .filter((e): e is ReviewEvent => e !== null)
+        .slice(-HISTORY_LIMIT)
+    : [];
 
   return {
     id: str(r.id) || genId(),
@@ -66,6 +115,9 @@ export function normalizeWord(raw: unknown): Word | null {
       correctCount: num(rawSrs.correctCount, 0),
       wrongCount: num(rawSrs.wrongCount, 0),
       lastReviewed: typeof rawSrs.lastReviewed === 'string' ? rawSrs.lastReviewed : null,
+      lapses: Math.max(0, num(rawSrs.lapses, 0)),
+      history,
+      preCount: normalizePreCount(rawSrs.preCount),
     },
   };
 }
@@ -84,6 +136,11 @@ function normalizeLogEntry(raw: unknown): StudyLogEntry | null {
   };
 }
 
+function normalizeLog(raw: unknown): StudyLogEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeLogEntry).filter((l): l is StudyLogEntry => l !== null);
+}
+
 function normalizeSettings(raw: unknown): AppSettings {
   const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   const goal = Math.round(num(r.dailyGoal, DEFAULT_DAILY_GOAL));
@@ -94,16 +151,46 @@ function normalizeSettings(raw: unknown): AppSettings {
   };
 }
 
+function normalizeMigration(raw: unknown): MigrationInfo | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  const logCutoff = str(r.logCutoff);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(logCutoff)) return undefined;
+  return {
+    appliedAt: str(r.appliedAt) || logCutoff,
+    from: num(r.from, 1),
+    to: num(r.to, STATE_VERSION),
+    logCutoff,
+    changes: strArray(r.changes) ?? [],
+  };
+}
+
+/**
+ * Reads any state payload this app has ever written and returns a current one.
+ * Anything below STATE_VERSION goes through the one-way v1 → v4 migration, which
+ * freezes the old log so the heatmap and streaks survive the upgrade.
+ */
 export function normalizeState(raw: unknown): AppState | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
   if (!Array.isArray(r.words)) return null;
 
-  return {
+  const version = num(r.version, 1);
+  const state: AppState = {
     words: r.words.map(normalizeWord).filter((w): w is Word => w !== null),
-    log: Array.isArray(r.log) ? r.log.map(normalizeLogEntry).filter((l): l is StudyLogEntry => l !== null) : [],
+    log: normalizeLog(r.log),
+    legacyLog: normalizeLog(r.legacyLog),
+    migration: normalizeMigration(r.migration),
     settings: normalizeSettings(r.settings),
   };
+
+  if (version < STATE_VERSION) return migrateState(state, version);
+  return withDerivedLog(state);
+}
+
+/** The on-disk / in-file shape: the state plus the schema version that wrote it. */
+export function serializeState(state: AppState): Record<string, unknown> {
+  return { version: STATE_VERSION, ...state };
 }
 
 export function loadState(): AppState | null {
@@ -116,10 +203,32 @@ export function loadState(): AppState | null {
   }
 }
 
-export function saveState(state: AppState): void {
+export interface SaveOutcome {
+  ok: boolean;
+  /** User-facing reason, set only when the write failed. */
+  error?: string;
+}
+
+/**
+ * Persists the state, reporting failure instead of swallowing it.
+ *
+ * Review history made overflow a real possibility (~3.4MB of history at 400 words
+ * against a ~5MB budget), and a silent failure looks exactly like a working app
+ * right up until the tab is closed and the day's studying is gone.
+ */
+export function saveState(state: AppState): SaveOutcome {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // storage full or unavailable - ignore, app continues in-memory
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+    return { ok: true };
+  } catch (err) {
+    const quota =
+      err instanceof DOMException &&
+      (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    return {
+      ok: false,
+      error: quota
+        ? '저장 공간이 가득 차서 방금 학습한 내용이 저장되지 않았어요. 설정 → 데이터 백업에서 파일로 내보낸 뒤, 안 쓰는 단어를 정리해주세요.'
+        : '이 브라우저에 데이터를 저장할 수 없어요. 시크릿 모드이거나 저장소가 차단된 상태일 수 있어요. 지금 학습한 내용은 창을 닫으면 사라집니다.',
+    };
   }
 }

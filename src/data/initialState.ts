@@ -15,6 +15,7 @@ export function buildInitialState(): AppState {
   return {
     words: [],
     log: [],
+    legacyLog: [],
     settings: {
       darkMode:
         typeof window !== 'undefined' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false) : false,

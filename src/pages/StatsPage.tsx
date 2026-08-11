@@ -16,6 +16,7 @@ import {
   memoryStageDistribution,
   examTypeMastery,
   formatDuration,
+  retentionStats,
 } from '../lib/stats';
 import { StudyHeatmap } from '../components/StudyHeatmap';
 import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
@@ -29,7 +30,7 @@ const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
 const WEAK_WORDS_TOP_N = 5;
 
 export default function StatsPage({ app, onStartReview }: { app: UseAppState; onStartReview: (wordIds: string[]) => void }) {
-  const { words, log } = app.state;
+  const { words, log, migration } = app.state;
   const streak = computeStreak(log);
   const accuracy = overallAccuracy(log);
   const todayStudied = getTodayEntry(log)?.studiedCount ?? 0;
@@ -43,6 +44,7 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
   const weekday = useMemo(() => weekdayPattern(log), [log]);
   const stages = useMemo(() => memoryStageDistribution(words), [words]);
   const examMastery = useMemo(() => examTypeMastery(words), [words]);
+  const retention = useMemo(() => retentionStats(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
 
   return (
@@ -105,6 +107,31 @@ export default function StatsPage({ app, onStartReview }: { app: UseAppState; on
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">암기 단계 ({words.length}개)</p>
         <p className="mb-3 text-xs text-slate-400">간격 반복 알고리즘이 각 단어를 어디까지 밀어냈는지예요.</p>
         <MemoryStageBar data={stages} total={words.length} />
+      </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">기억 유지력</p>
+        <p className="mb-3 text-xs text-slate-400">
+          정답률이 "얼마나 맞히는가"라면, 이건 "자리잡은 단어가 얼마나 다시 무너지는가"예요.
+        </p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          <Metric
+            label="평균 오답률"
+            value={`${Math.round(retention.meanWrongRate * 100)}%`}
+            sub={retention.isEstimate ? '표본 부족 — 기본값' : undefined}
+          />
+          <Metric
+            label="평균 응답 시간"
+            value={retention.avgResponseMs == null ? '-' : `${(retention.avgResponseMs / 1000).toFixed(1)}초`}
+          />
+          <Metric label="복습 붕괴" value={`${retention.lapses}회`} sub="자리잡은 뒤 다시 틀린 횟수" />
+          <Metric label="붕괴한 단어" value={`${retention.lapsedWords}개`} />
+        </div>
+        {migration && (
+          <p className="mt-2 text-[11px] text-slate-400">
+            {migration.logCutoff} 이전 기록은 상세 이력이 없어 복습 붕괴·응답 시간 집계에서 빠져 있어요.
+          </p>
+        )}
       </Card>
 
       <Card>

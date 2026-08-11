@@ -7,7 +7,7 @@ import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
-import { getDueWords, QUALITY_CORRECT, QUALITY_INCORRECT } from '../lib/srs';
+import { getDueWords } from '../lib/srs';
 
 type Phase = 'setup' | 'active' | 'done';
 
@@ -34,14 +34,15 @@ export default function StudyPage({
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [focusedReview, setFocusedReview] = useState(false);
-  const sessionStartRef = useRef(0);
+  /** When the current card was put on screen — the response time recorded for it. */
+  const cardShownRef = useRef(Date.now());
 
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
   const dueWords = useMemo(() => getDueWords(scopedWords), [scopedWords]);
 
   function start(list: Word[], focused = false) {
     if (list.length === 0) return;
-    sessionStartRef.current = Date.now();
+    cardShownRef.current = Date.now();
     setQueue(list);
     setIndex(0);
     setFlipped(false);
@@ -62,20 +63,21 @@ export default function StudyPage({
 
   function grade(know: boolean) {
     const word = queue[index];
-    app.gradeWord(word.id, know ? QUALITY_CORRECT : QUALITY_INCORRECT);
+    // Self-graded, so the elapsed time never affects the score — but it is still
+    // recorded, because the study-time statistic is derived from it.
+    app.gradeWord(word.id, know, {
+      ms: Date.now() - cardShownRef.current,
+      mode: 'flashcard',
+      dir: frontIsWord ? 'w2m' : 'm2w',
+    });
     if (know) setCorrect((c) => c + 1);
     else setWrong((w) => w + 1);
 
     const next = index + 1;
     if (next >= queue.length) {
-      app.logSession(
-        queue.length,
-        correct + (know ? 1 : 0),
-        wrong + (know ? 0 : 1),
-        (Date.now() - sessionStartRef.current) / 1000
-      );
       setPhase('done');
     } else {
+      cardShownRef.current = Date.now();
       setIndex(next);
       setFlipped(false);
     }

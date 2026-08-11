@@ -3,7 +3,6 @@ import type { Word } from '../../types';
 import type { UseAppState } from '../../hooks/useAppState';
 import { Button, Card, ProgressBar, Badge } from '../ui';
 import { Icon } from '../Icon';
-import { QUALITY_CORRECT, QUALITY_INCORRECT } from '../../lib/srs';
 import { buildLetterPool } from '../../lib/games';
 
 const TIME_LIMIT = 60;
@@ -37,12 +36,17 @@ export default function WordBuildGame({ app, pool, onExit }: { app: UseAppState;
   useEffect(() => {
     if (ended && !finishedRef.current) {
       finishedRef.current = true;
-      for (const w of targetWords) {
-        const gotIt = found.has(w.word.toLowerCase());
-        app.gradeWord(w.id, gotIt ? QUALITY_CORRECT : QUALITY_INCORRECT);
-      }
-      const correctCount = found.size;
-      app.logSession(targetWords.length, correctCount, targetWords.length - correctCount, TIME_LIMIT - timeLeft);
+      // The round is played against one shared clock, so the elapsed time is split
+      // evenly across the words it covered. It never affects grading (mode 'game'
+      // disables time-based quality) — it only feeds the study-time statistic.
+      const msPerWord = Math.round(((TIME_LIMIT - timeLeft) * 1000) / targetWords.length);
+      app.gradeWords(
+        targetWords.map((w) => ({
+          id: w.id,
+          correct: found.has(w.word.toLowerCase()),
+          opts: { mode: 'game' as const, dir: 'm2w' as const, ms: msPerWord },
+        }))
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ended]);

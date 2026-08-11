@@ -1,24 +1,26 @@
 import type { AppState, Word } from '../types';
-import { normalizeState } from './storage';
+import { normalizeState, serializeState } from './storage';
+import { STATE_VERSION } from './srs';
 
 const BACKUP_FORMAT = 'aswqpp-backup';
-const BACKUP_VERSION = 1;
 
 interface BackupFile {
   format: string;
   version: number;
   exportedAt: string;
   wordCount: number;
-  state: AppState;
+  state: Record<string, unknown>;
 }
 
 export function buildBackup(state: AppState): BackupFile {
   return {
     format: BACKUP_FORMAT,
-    version: BACKUP_VERSION,
+    version: STATE_VERSION,
     exportedAt: new Date().toISOString(),
     wordCount: state.words.length,
-    state,
+    // The version travels inside `state` too, so a file restored through the
+    // bare-state path still gets migrated correctly.
+    state: serializeState(state),
   };
 }
 

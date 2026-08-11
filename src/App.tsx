@@ -93,6 +93,15 @@ export default function App() {
         </div>
       </nav>
 
+      {app.storageError && (
+        <div className="mx-auto w-full max-w-2xl px-4 pt-4">
+          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300">
+            <Icon name="x" className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{app.storageError}</p>
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-4 sm:pb-8">
         {screen === 'home' && <HomePage app={app} dueCount={dueCount} onNavigate={setScreen} />}
         {screen === 'words' && <WordsPage app={app} />}

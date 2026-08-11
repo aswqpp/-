@@ -1,26 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { AppSettings, AppState, Word } from '../types';
 import { loadState, saveState } from '../lib/storage';
 import { mergeWords } from '../lib/backup';
 import { buildInitialState, genId } from '../data/initialState';
-import { reviewWord, todayIso } from '../lib/srs';
+import { createInitialSrs, reviewWord, withDerivedLog, type ReviewOptions } from '../lib/srs';
+
+/** One attempt to record, as handed in by a game finishing several words at once. */
+export interface GradeInput {
+  id: string;
+  correct: boolean;
+  opts: ReviewOptions;
+}
 
 export function useAppState() {
   const [state, setState] = useState<AppState>(() => loadState() ?? buildInitialState());
-  const isFirstRun = useRef(true);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
+  // Writes on every change, including the very first render: a load that ran the
+  // v1 → v4 migration has to be persisted right away, or the migration (and its
+  // log cutoff) is recomputed from scratch on each reload until something is saved.
   useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      if (!loadState()) saveState(state);
-      return;
-    }
-    saveState(state);
+    const outcome = saveState(state);
+    setStorageError(outcome.ok ? null : (outcome.error ?? null));
   }, [state]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.settings.darkMode);
   }, [state.settings.darkMode]);
+
+  /**
+   * Applies a change that touches `words`, then rebuilds the derived study log.
+   * Every write to `words` goes through here so `log` can never drift out of sync.
+   */
+  const updateWords = useCallback((fn: (s: AppState) => AppState) => {
+    setState((s) => withDerivedLog(fn(s)));
+  }, []);
 
   const toggleDarkMode = useCallback(() => {
     setState((s) => ({ ...s, settings: { ...s.settings, darkMode: !s.settings.darkMode } }));
@@ -31,9 +45,12 @@ export function useAppState() {
   }, []);
 
   /** Replaces everything with a restored backup. */
-  const replaceState = useCallback((next: AppState) => {
-    setState(next);
-  }, []);
+  const replaceState = useCallback(
+    (next: AppState) => {
+      updateWords(() => next);
+    },
+    [updateWords]
+  );
 
   /**
    * Adds only the words a backup has that this device doesn't, leaving current progress intact.
@@ -43,31 +60,26 @@ export function useAppState() {
   const mergeFromBackup = useCallback(
     (incoming: AppState) => {
       const merged = mergeWords(state.words, incoming.words);
-      setState((s) => ({ ...s, words: merged.words }));
+      updateWords((s) => ({ ...s, words: merged.words }));
       return { added: merged.added, skipped: merged.skipped };
     },
-    [state.words]
+    [state.words, updateWords]
   );
 
-  const addWord = useCallback((data: Omit<Word, 'id' | 'createdAt' | 'srs'>) => {
-    setState((s) => {
-      const newWord: Word = {
-        ...data,
-        id: genId(),
-        createdAt: new Date().toISOString(),
-        srs: {
-          easeFactor: 2.5,
-          interval: 0,
-          repetitions: 0,
-          dueDate: todayIso(),
-          correctCount: 0,
-          wrongCount: 0,
-          lastReviewed: null,
-        },
-      };
-      return { ...s, words: [newWord, ...s.words] };
-    });
-  }, []);
+  const addWord = useCallback(
+    (data: Omit<Word, 'id' | 'createdAt' | 'srs'>) => {
+      updateWords((s) => {
+        const newWord: Word = {
+          ...data,
+          id: genId(),
+          createdAt: new Date().toISOString(),
+          srs: createInitialSrs(),
+        };
+        return { ...s, words: [newWord, ...s.words] };
+      });
+    },
+    [updateWords]
+  );
 
   const addWordsBulk = useCallback(
     (rows: Omit<Word, 'id' | 'createdAt' | 'srs'>[], options: { skipDuplicates: boolean }) => {
@@ -87,29 +99,16 @@ export function useAppState() {
         }
         seenInBatch.add(key);
         added++;
-        newWords.push({
-          ...data,
-          id: genId(),
-          createdAt: now,
-          srs: {
-            easeFactor: 2.5,
-            interval: 0,
-            repetitions: 0,
-            dueDate: todayIso(),
-            correctCount: 0,
-            wrongCount: 0,
-            lastReviewed: null,
-          },
-        });
+        newWords.push({ ...data, id: genId(), createdAt: now, srs: createInitialSrs() });
       }
 
       if (newWords.length > 0) {
-        setState((s) => ({ ...s, words: [...newWords, ...s.words] }));
+        updateWords((s) => ({ ...s, words: [...newWords, ...s.words] }));
       }
 
       return { added, skippedDuplicates };
     },
-    [state.words]
+    [state.words, updateWords]
   );
 
   const updateWord = useCallback((id: string, data: Partial<Omit<Word, 'id' | 'srs'>>) => {
@@ -119,47 +118,58 @@ export function useAppState() {
     }));
   }, []);
 
-  const deleteWord = useCallback((id: string) => {
-    setState((s) => ({ ...s, words: s.words.filter((w) => w.id !== id) }));
-  }, []);
+  const deleteWord = useCallback(
+    (id: string) => {
+      updateWords((s) => ({ ...s, words: s.words.filter((w) => w.id !== id) }));
+    },
+    [updateWords]
+  );
 
-  const gradeWord = useCallback((id: string, quality: number) => {
-    setState((s) => ({
-      ...s,
-      words: s.words.map((w) => (w.id === id ? { ...w, srs: reviewWord(w.srs, quality) } : w)),
-    }));
-  }, []);
+  /**
+   * Records one attempt. `opts.mode` decides whether the response time is graded,
+   * and `opts.ms` should be passed even for modes that ignore it — the study-time
+   * statistic is derived from nothing else.
+   */
+  const gradeWord = useCallback(
+    (id: string, correct: boolean, opts: ReviewOptions) => {
+      updateWords((s) => ({
+        ...s,
+        words: s.words.map((w) => (w.id === id ? { ...w, srs: reviewWord(w.srs, correct, opts) } : w)),
+      }));
+    },
+    [updateWords]
+  );
 
-  const logSession = useCallback((studied: number, correct: number, wrong: number, seconds = 0) => {
-    setState((s) => {
-      const today = todayIso();
-      const idx = s.log.findIndex((l) => l.date === today);
-      const log = [...s.log];
-      if (idx >= 0) {
-        log[idx] = {
-          ...log[idx],
-          studiedCount: log[idx].studiedCount + studied,
-          correctCount: log[idx].correctCount + correct,
-          wrongCount: log[idx].wrongCount + wrong,
-          studySeconds: log[idx].studySeconds + Math.max(0, Math.round(seconds)),
+  /** Records several attempts as one update — games grade a whole board at once. */
+  const gradeWords = useCallback(
+    (entries: GradeInput[]) => {
+      if (entries.length === 0) return;
+      updateWords((s) => {
+        const byId = new Map<string, GradeInput[]>();
+        for (const e of entries) {
+          const list = byId.get(e.id);
+          if (list) list.push(e);
+          else byId.set(e.id, [e]);
+        }
+        return {
+          ...s,
+          words: s.words.map((w) => {
+            const list = byId.get(w.id);
+            if (!list) return w;
+            let srs = w.srs;
+            for (const e of list) srs = reviewWord(srs, e.correct, e.opts);
+            return { ...w, srs };
+          }),
         };
-      } else {
-        log.push({
-          date: today,
-          studiedCount: studied,
-          correctCount: correct,
-          wrongCount: wrong,
-          studySeconds: Math.max(0, Math.round(seconds)),
-        });
-      }
-      return { ...s, log };
-    });
-  }, []);
+      });
+    },
+    [updateWords]
+  );
 
   /** Wipes every word and study log, keeping the user's settings. */
   const deleteAllWords = useCallback(() => {
-    setState((s) => ({ ...s, words: [], log: [] }));
-  }, []);
+    updateWords((s) => ({ ...s, words: [], legacyLog: [], migration: undefined }));
+  }, [updateWords]);
 
   /** Full factory reset, settings included. */
   const resetAllData = useCallback(() => {
@@ -168,12 +178,13 @@ export function useAppState() {
 
   return {
     state,
+    storageError,
     addWord,
     addWordsBulk,
     updateWord,
     deleteWord,
     gradeWord,
-    logSession,
+    gradeWords,
     toggleDarkMode,
     updateSettings,
     replaceState,

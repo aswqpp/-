@@ -3,7 +3,6 @@ import type { Word } from '../../types';
 import type { UseAppState } from '../../hooks/useAppState';
 import { Button, Card, Badge } from '../ui';
 import { Icon } from '../Icon';
-import { QUALITY_CORRECT, QUALITY_INCORRECT } from '../../lib/srs';
 import { shuffleArray } from '../../lib/quiz';
 
 const PAIR_COUNT = 5;
@@ -61,13 +60,16 @@ export default function MatchGame({ app, pool, onExit }: { app: UseAppState; poo
     if (pairWords.length === 0 || matchedWordIds.size !== pairWords.length) return;
     finishedRef.current = true;
     const elapsed = Date.now() - startTimeRef.current;
-    let correctCount = 0;
-    for (const w of pairWords) {
-      const isClean = !wrongTouches[w.id];
-      app.gradeWord(w.id, isClean ? QUALITY_CORRECT : QUALITY_INCORRECT);
-      if (isClean) correctCount++;
-    }
-    app.logSession(pairWords.length, correctCount, pairWords.length - correctCount, elapsed / 1000);
+    // One board, one clock: the elapsed time is divided across the pairs. Grading
+    // ignores it (mode 'game'); it exists so the study-time statistic stays honest.
+    const msPerWord = Math.round(elapsed / pairWords.length);
+    app.gradeWords(
+      pairWords.map((w) => ({
+        id: w.id,
+        correct: !wrongTouches[w.id],
+        opts: { mode: 'game' as const, dir: 'w2m' as const, ms: msPerWord },
+      }))
+    );
     setFinalElapsedMs(elapsed);
     setFinished(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps

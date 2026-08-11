@@ -1,6 +1,6 @@
 import type { DifficultyLevel, ExamType, StudyLogEntry, Word } from '../types';
 import { deriveDifficulty } from './difficulty';
-import { addDays, todayIso } from './srs';
+import { addDays, computeM, M_MIN_SAMPLE, todayIso } from './srs';
 
 export function getTodayEntry(log: StudyLogEntry[]): StudyLogEntry | undefined {
   return log.find((l) => l.date === todayIso());
@@ -243,6 +243,51 @@ export function memoryStageDistribution(words: Word[]): Record<MemoryStage, numb
   const dist: Record<MemoryStage, number> = { new: 0, learning: 0, reviewing: 0, mastered: 0 };
   for (const w of words) dist[memoryStage(w)]++;
   return dist;
+}
+
+export interface RetentionStats {
+  /** Mean wrong rate across the whole deck. */
+  meanWrongRate: number;
+  /** True while the deck has too few attempts for the mean to mean anything. */
+  isEstimate: boolean;
+  /** Times a word that had already matured (2+ correct in a row) was missed again. */
+  lapses: number;
+  /** Words currently carrying at least one lapse. */
+  lapsedWords: number;
+  /** Mean response time over the attempts that recorded one, in ms. Null if none did. */
+  avgResponseMs: number | null;
+}
+
+/**
+ * How well the deck is actually holding. Accuracy says how often answers are right;
+ * this says how often *settled* words come loose again, which is the thing worth
+ * reacting to — a lapse means the schedule pushed that word out too far.
+ */
+export function retentionStats(words: Word[]): RetentionStats {
+  let lapses = 0;
+  let lapsedWords = 0;
+  let attempts = 0;
+  let msTotal = 0;
+  let msCount = 0;
+
+  for (const w of words) {
+    lapses += w.srs.lapses;
+    if (w.srs.lapses > 0) lapsedWords++;
+    attempts += w.srs.correctCount + w.srs.wrongCount;
+    for (const h of w.srs.history) {
+      if (h.ms == null) continue;
+      msTotal += h.ms;
+      msCount++;
+    }
+  }
+
+  return {
+    meanWrongRate: computeM(words),
+    isEstimate: attempts < M_MIN_SAMPLE,
+    lapses,
+    lapsedWords,
+    avgResponseMs: msCount > 0 ? Math.round(msTotal / msCount) : null,
+  };
 }
 
 export interface ExamTypeMastery {
