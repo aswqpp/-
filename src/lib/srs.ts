@@ -94,6 +94,20 @@ export function limitFor(mode: ReviewMode): number | null {
   return Object.prototype.hasOwnProperty.call(LIMIT_MS, mode) ? LIMIT_MS[mode] : null;
 }
 
+/**
+ * Master switch for response-time grading. OFF.
+ *
+ * The table above is kept exactly as specified, but it is not consulted while this
+ * is false — `ms` is recorded and nothing more. The reason is the headline bug:
+ * measured mean response is 9.70s, so a 15s limit puts a typical correct answer at
+ * ratio 0.65 → q=4 → EF delta of exactly 0, which is how ease stopped recovering in
+ * the first place. Turning it on before the thresholds are re-derived from measured
+ * percentiles would reintroduce that.
+ *
+ * Flipping this to true is all it takes to enable the per-mode table again.
+ */
+export const TIME_GRADING_ENABLED = false;
+
 /** Attempt → SM-2 quality. With limitMs null, time is ignored and a correct answer is q=5. */
 export function gradeQuality(correct: boolean, ms: number | null = null, limitMs: number | null = null): number {
   if (!correct) return 2; // wrong: -0.32
@@ -159,7 +173,8 @@ export interface ReviewOptions {
 export function reviewWord(srs: SrsData, correct: boolean, opts: ReviewOptions): SrsData {
   const { ms = null, mode, dir, now = new Date() } = opts;
 
-  const limitMs = opts.limitMs !== undefined ? opts.limitMs : limitFor(mode);
+  const limitMs =
+    opts.limitMs !== undefined ? opts.limitMs : TIME_GRADING_ENABLED ? limitFor(mode) : null;
   const q = gradeQuality(correct, ms, limitMs);
 
   const ef = Math.min(EF_MAX, Math.max(EF_MIN, (srs.easeFactor ?? EF_INIT) + efDelta(q)));

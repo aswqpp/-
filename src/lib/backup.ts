@@ -61,7 +61,14 @@ export function parseBackup(text: string): ParsedBackup {
   const candidate =
     container && typeof container === 'object' && 'state' in container ? container.state : raw;
 
-  const state = normalizeState(candidate);
+  // Files written by the external v4 migration tool put the schema version on the
+  // envelope only, so it has to be handed down or the state reads as v1.
+  const envelopeVersion =
+    container && typeof container.version === 'number' && Number.isFinite(container.version)
+      ? container.version
+      : undefined;
+
+  const state = normalizeState(candidate, envelopeVersion);
   if (!state) {
     throw new Error('백업 파일을 읽을 수 없어요. 이 앱에서 내보낸 파일인지 확인해주세요.');
   }

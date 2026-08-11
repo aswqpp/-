@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import type { Screen } from '../types';
+import type { ReviewDirection, ReviewMode, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card } from '../components/ui';
 import { Icon } from '../components/Icon';
 import {
   computeStreak,
-  overallAccuracy,
+  overallAccuracyStats,
+  accuracyByMode,
+  accuracyByDirection,
   getTodayEntry,
   categoryMastery,
   difficultyDistribution,
@@ -29,10 +31,25 @@ import { EASY_AT, HARD_AT } from '../lib/difficulty';
 const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
 const CATEGORY_PREVIEW_COUNT = 3;
 
+const REVIEW_MODE_LABEL: Record<ReviewMode, string> = {
+  mc: '객관식',
+  listening: '듣고 뜻 맞추기',
+  spelling: '스펠링 입력',
+  flashcard: '플래시카드',
+  game: '게임',
+};
+
+const REVIEW_DIRECTION_LABEL: Record<ReviewDirection, string> = {
+  w2m: '단어 → 뜻',
+  m2w: '뜻 → 단어',
+};
+
 export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
   const { words, log, migration } = app.state;
   const streak = computeStreak(log);
-  const accuracy = overallAccuracy(log);
+  const accuracy = useMemo(() => overallAccuracyStats(words), [words]);
+  const byMode = useMemo(() => accuracyByMode(words), [words]);
+  const byDirection = useMemo(() => accuracyByDirection(words), [words]);
   const todayStudied = getTodayEntry(log)?.studiedCount ?? 0;
 
   const catMastery = useMemo(() => categoryMastery(words), [words]);
@@ -63,7 +80,7 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
         </Card>
         <Card padding="p-3" className="flex flex-col items-center text-center">
           <Icon name="check" className="h-5 w-5 text-emerald-500" />
-          <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{accuracy}%</p>
+          <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{accuracy.pct}%</p>
           <p className="text-[11px] text-slate-400">전체 정답률</p>
         </Card>
       </div>
@@ -114,6 +131,39 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">암기 단계 ({words.length}개)</p>
         <p className="mb-3 text-xs text-slate-400">간격 반복 알고리즘이 각 단어를 어디까지 밀어냈는지예요.</p>
         <MemoryStageBar data={stages} total={words.length} />
+      </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">모드별 · 방향별 정확도</p>
+        <p className="mb-3 text-xs text-slate-400">
+          어떤 방식으로 물었을 때 잘 맞히는지 비교해요. 전체 정답률 {accuracy.pct}% ({accuracy.correct}/{accuracy.attempts}회)
+        </p>
+
+        {byMode.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-400">
+            아직 모드별 기록이 없어요. 이번 업데이트 이후의 학습부터 쌓여요.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              {byMode.map((m) => (
+                <AccuracyRow key={m.key} label={REVIEW_MODE_LABEL[m.key]} pct={m.pct} attempts={m.attempts} />
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+              {byDirection.map((d) => (
+                <AccuracyRow key={d.key} label={REVIEW_DIRECTION_LABEL[d.key]} pct={d.pct} attempts={d.attempts} tone="violet" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {accuracy.legacyAttempts > 0 && (
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+            전체 정답률에는 이전 기록 {accuracy.legacyAttempts}회가 포함돼 있어요. 다만 그 기록에는 어떤 모드·방향으로
+            풀었는지가 남아 있지 않아, 위 모드별·방향별 집계에서는 빠져 있습니다.
+          </p>
+        )}
       </Card>
 
       <Card>
@@ -255,6 +305,35 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
         </ul>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function AccuracyRow({
+  label,
+  pct,
+  attempts,
+  tone = 'indigo',
+}: {
+  label: string;
+  pct: number;
+  attempts: number;
+  tone?: 'indigo' | 'violet';
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+        <span className="tabular-nums text-slate-400">
+          {pct}% · {attempts}회
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${tone === 'violet' ? 'bg-violet-500' : 'bg-indigo-500'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }

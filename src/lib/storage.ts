@@ -171,18 +171,30 @@ function normalizeMigration(raw: unknown): MigrationInfo | undefined {
  * Reads any state payload this app has ever written and returns a current one.
  * Anything below STATE_VERSION goes through the one-way v1 → v4 migration, which
  * freezes the old log so the heatmap and streaks survive the upgrade.
+ *
+ * `fallbackVersion` covers backup files that carry the schema version on the file
+ * envelope rather than inside `state` — without it a v4 file would be read as v1
+ * and migrated a second time, resealing preCount over the real counters.
  */
-export function normalizeState(raw: unknown): AppState | null {
+export function normalizeState(raw: unknown, fallbackVersion?: number): AppState | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
   if (!Array.isArray(r.words)) return null;
 
-  const version = num(r.version, 1);
+  const migration = normalizeMigration(r.migration);
+  // A payload carrying a migration block has already been through the upgrade,
+  // whatever its envelope claims.
+  const version = num(r.version, migration ? migration.to : (fallbackVersion ?? 1));
+
+  const log = normalizeLog(r.log);
   const state: AppState = {
     words: r.words.map(normalizeWord).filter((w): w is Word => w !== null),
-    log: normalizeLog(r.log),
-    legacyLog: normalizeLog(r.legacyLog),
-    migration: normalizeMigration(r.migration),
+    log,
+    // Migrated externally (no legacyLog field): its `log` *is* the frozen legacy
+    // record, since migrated words have no history to derive anything from.
+    // rebuildLog drops anything past the cutoff, so nothing gets counted twice.
+    legacyLog: Array.isArray(r.legacyLog) ? normalizeLog(r.legacyLog) : migration ? log : [],
+    migration,
     settings: normalizeSettings(r.settings),
   };
 

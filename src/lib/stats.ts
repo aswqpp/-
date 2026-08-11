@@ -1,4 +1,4 @@
-import type { DifficultyLevel, StudyLogEntry, Word } from '../types';
+import type { DifficultyLevel, ReviewDirection, ReviewEvent, ReviewMode, StudyLogEntry, Word } from '../types';
 import { deriveDifficulty } from './difficulty';
 import { isMastered } from './memory';
 import { addDays, computeM, M_MIN_SAMPLE, toLocalDate, todayIso } from './srs';
@@ -47,6 +47,84 @@ export function overallAccuracy(log: StudyLogEntry[]): number {
   const totalWrong = log.reduce((sum, l) => sum + l.wrongCount, 0);
   const total = totalCorrect + totalWrong;
   return total === 0 ? 0 : Math.round((totalCorrect / total) * 100);
+}
+
+export interface AccuracySummary {
+  correct: number;
+  wrong: number;
+  attempts: number;
+  pct: number;
+  /** Attempts that predate the attempt history and so carry no mode or direction. */
+  legacyAttempts: number;
+}
+
+/**
+ * Overall accuracy, counted from the per-word counters.
+ *
+ * Those counters are the complete record: they already include every pre-upgrade
+ * attempt, which is exactly what `preCount` sealed. Adding preCount on top would
+ * count that era twice — it is reported separately, as a footnote, instead.
+ *
+ * Reading from the counters rather than the log also sidesteps the old logging
+ * gap, where an abandoned session updated the counters but never reached the log.
+ */
+export function overallAccuracyStats(words: Word[]): AccuracySummary {
+  let correct = 0;
+  let wrong = 0;
+  let legacyAttempts = 0;
+
+  for (const w of words) {
+    correct += w.srs.correctCount;
+    wrong += w.srs.wrongCount;
+    if (w.srs.preCount) legacyAttempts += w.srs.preCount.ok + w.srs.preCount.ng;
+  }
+
+  const attempts = correct + wrong;
+  return { correct, wrong, attempts, pct: attempts === 0 ? 0 : Math.round((correct / attempts) * 100), legacyAttempts };
+}
+
+export interface SplitAccuracy<K extends string> {
+  key: K;
+  correct: number;
+  wrong: number;
+  attempts: number;
+  pct: number;
+}
+
+function splitAccuracy<K extends string>(words: Word[], keyOf: (e: ReviewEvent) => K): SplitAccuracy<K>[] {
+  const map = new Map<K, { correct: number; wrong: number }>();
+
+  for (const w of words) {
+    // History only. Pre-upgrade attempts have no mode or direction recorded, so
+    // folding preCount in here would invent a breakdown that was never measured.
+    for (const h of w.srs.history) {
+      const key = keyOf(h);
+      let bucket = map.get(key);
+      if (!bucket) {
+        bucket = { correct: 0, wrong: 0 };
+        map.set(key, bucket);
+      }
+      if (h.ok) bucket.correct++;
+      else bucket.wrong++;
+    }
+  }
+
+  return [...map.entries()]
+    .map(([key, { correct, wrong }]) => {
+      const attempts = correct + wrong;
+      return { key, correct, wrong, attempts, pct: attempts ? Math.round((correct / attempts) * 100) : 0 };
+    })
+    .sort((a, b) => b.attempts - a.attempts);
+}
+
+/** Accuracy per study mode — post-upgrade attempts only. */
+export function accuracyByMode(words: Word[]): SplitAccuracy<ReviewMode>[] {
+  return splitAccuracy(words, (h) => h.mode);
+}
+
+/** Accuracy per question direction (word→meaning vs meaning→word) — post-upgrade attempts only. */
+export function accuracyByDirection(words: Word[]): SplitAccuracy<ReviewDirection>[] {
+  return splitAccuracy(words, (h) => h.dir);
 }
 
 export interface CategoryMastery {

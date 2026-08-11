@@ -3,6 +3,8 @@ import { createJiti } from 'jiti';
 const jiti = createJiti(import.meta.url);
 const srs = await jiti.import('/home/user/-/src/lib/srs.ts');
 const storage = await jiti.import('/home/user/-/src/lib/storage.ts');
+const stats = await jiti.import('/home/user/-/src/lib/stats.ts');
+const backup = await jiti.import('/home/user/-/src/lib/backup.ts');
 
 let failures = 0;
 function check(name, actual, expected) {
@@ -28,8 +30,21 @@ check('q fast', srs.gradeQuality(true, 1000, 15000), 5);
 check('q normal', srs.gradeQuality(true, 8000, 15000), 4);
 check('q slow', srs.gradeQuality(true, 14000, 15000), 3);
 check('q untimed correct', srs.gradeQuality(true, 60000, null), 5);
-check('limit flashcard', srs.limitFor('flashcard'), null);
-check('limit mc', srs.limitFor('mc'), 15000);
+check('limit table untouched: flashcard', srs.limitFor('flashcard'), null);
+check('limit table untouched: mc', srs.limitFor('mc'), 15000);
+
+/* Time-based grading is switched off, so the table above is not consulted:
+   a mean-speed (9.70s) correct answer must not land on q=4 and freeze EF. */
+check('time grading off', srs.TIME_GRADING_ENABLED, false);
+const meanSpeed = srs.reviewWord(srs.createInitialSrs(), true, { ms: 9700, mode: 'mc', dir: 'w2m' });
+check('mean-speed mc answer graded q=5', meanSpeed.history[0].q, 5);
+check('mean-speed mc answer raises EF', meanSpeed.easeFactor, 2.6);
+check('explicit limitMs still overrides', srs.reviewWord(srs.createInitialSrs(), true, {
+  ms: 9700,
+  mode: 'mc',
+  dir: 'w2m',
+  limitMs: 15000,
+}).history[0].q, 4);
 
 /* ---- reviewWord ---- */
 const now = new Date('2026-08-11T10:00:00');
@@ -183,6 +198,121 @@ check(
 check('computeM falls back below the sample floor', srs.computeM(loaded.words), srs.M_FALLBACK);
 const manyWords = Array.from({ length: 10 }, (_, i) => v1Word(String(i), 8, 2, null));
 check('computeM from real counts', srs.computeM(manyWords), 0.2);
+
+/* ================================================================== */
+/* Acceptance cases from the SRS v4 request                            */
+/* ================================================================== */
+console.log('\n-- v4 acceptance cases --');
+
+/* 1. Local 08-12 08:00, correct, resulting interval 6 → due 08-18, lastReviewed 08-12.
+      The morning hour is the point: the old UTC-based formatting moved both back a day. */
+const morning = new Date('2026-08-12T08:00:00');
+let case1 = srs.createInitialSrs();
+case1 = srs.reviewWord(case1, true, { ms: 3000, mode: 'flashcard', dir: 'w2m', now: morning });
+case1 = srs.reviewWord(case1, true, { ms: 3000, mode: 'flashcard', dir: 'w2m', now: morning });
+check('case 1: interval 6 at 08:00 local', case1.interval, 6);
+check('case 1: dueDate', case1.dueDate, '2026-08-18');
+check('case 1: lastReviewed', case1.lastReviewed, '2026-08-12');
+
+/* 2. Five straight correct answers on a new word → [1, 6, 17, 49, 147] */
+let case2 = srs.createInitialSrs();
+const intervals = [];
+for (let i = 0; i < 5; i++) {
+  case2 = srs.reviewWord(case2, true, { ms: 3000, mode: 'flashcard', dir: 'w2m', now: morning });
+  intervals.push(case2.interval);
+}
+check('case 2: interval ladder', intervals, [1, 6, 17, 49, 147]);
+
+/* 3. A 60-second correct answer on a flashcard is still q=5, and the time is kept */
+const case3 = srs.reviewWord(srs.createInitialSrs(), true, {
+  ms: 60000,
+  mode: 'flashcard',
+  dir: 'w2m',
+  now: morning,
+});
+check('case 3: slow flashcard still q=5', case3.history[0].q, 5);
+check('case 3: ms recorded', case3.history[0].ms, 60000);
+check('case 3: EF rose', case3.easeFactor > srs.EF_INIT, true);
+
+/* 4 & 5. Lapses only count once a card has matured */
+check('case 4: miss at repetitions=1 is not a lapse', srs.isLapse({ repetitions: 1 }, false), false);
+check('case 5: miss at repetitions=2 is a lapse', srs.isLapse({ repetitions: 2 }, false), true);
+
+/* 6. The migration boundary day sums legacy and derived — covered above by
+      'rebuildLog merges the boundary day' and re-asserted here end-to-end. */
+const boundaryCutoff = '2026-08-11';
+const boundaryLegacy = [{ date: boundaryCutoff, studiedCount: 3, correctCount: 3, wrongCount: 0, studySeconds: 30 }];
+const boundaryWords = [
+  {
+    id: 'z',
+    srs: {
+      history: [
+        { t: new Date('2026-08-11T21:00:00').toISOString(), ok: false, mode: 'mc', dir: 'w2m', q: 2, ms: 8000 },
+      ],
+    },
+  },
+];
+check('case 6: boundary day merges both sources', srs.rebuildLog(boundaryWords, boundaryLegacy, boundaryCutoff), [
+  { date: boundaryCutoff, studiedCount: 4, correctCount: 3, wrongCount: 1, studySeconds: 38 },
+]);
+
+/* ---- importing a backup produced by the external v4 migration tool ---- */
+console.log('\n-- external v4 backup import --');
+
+// That tool writes the version on the envelope only, gives no legacyLog, and folds
+// the pre-migration log into state.log.
+const externalBackupState = {
+  words: [v1Word('a', 11, 4, '2026-08-11')].map((w) => ({ ...w, srs: srs.migrateSrs(w.srs) })),
+  log: [
+    { date: '2026-08-09', studiedCount: 5, correctCount: 4, wrongCount: 1, studySeconds: 60 },
+    { date: '2026-08-11', studiedCount: 3, correctCount: 3, wrongCount: 0, studySeconds: 30 },
+  ],
+  settings: { darkMode: false, flashcardFrontIsWord: true, dailyGoal: 20 },
+  migration: {
+    appliedAt: '2026-08-11',
+    from: 1,
+    to: 4,
+    logCutoff: '2026-08-11',
+    changes: ['local_date_fix', 'ef_max_3.0'],
+  },
+};
+const imported = storage.normalizeState(externalBackupState, 4);
+check('external: not re-migrated', imported.migration.logCutoff, '2026-08-11');
+check('external: preCount survives untouched', imported.words[0].srs.preCount, { ok: 11, ng: 4, until: '2026-08-11' });
+check('external: EF not recomputed a second time', imported.words[0].srs.easeFactor, srs.migrateSrs(v1Word('a', 11, 4, '2026-08-11').srs).easeFactor);
+check('external: legacy log recovered from state.log', imported.log.length, 2);
+check('external: legacy totals intact', imported.log[0], externalBackupState.log[0]);
+
+// The same file going through the real import path (envelope + state).
+const externalFile = JSON.stringify({
+  format: 'aswqpp-backup',
+  version: 4,
+  exportedAt: '2026-08-11T12:00:00.000Z',
+  wordCount: 1,
+  state: externalBackupState,
+});
+const parsed = backup.parseBackup(externalFile);
+check('parseBackup: envelope version respected', parsed.state.migration.from, 1);
+check('parseBackup: no second migration', parsed.state.words[0].srs.preCount, { ok: 11, ng: 4, until: '2026-08-11' });
+check('parseBackup: legacy log kept', parsed.state.log.length, 2);
+check('parseBackup: exportedAt read', parsed.exportedAt, '2026-08-11T12:00:00.000Z');
+
+// A payload with no version and no migration block is still treated as v1.
+const bareV1 = { words: [v1Word('b', 2, 1, '2026-08-10')], log: [], settings: {} };
+check('bare v1 payload still migrates', storage.normalizeState(bareV1).migration.from, 1);
+
+/* ---- preCount accounting ---- */
+console.log('\n-- preCount accounting --');
+const accWords = imported.words.map((w) => ({
+  ...w,
+  srs: srs.reviewWord(w.srs, true, { ms: 4000, mode: 'mc', dir: 'w2m' }),
+}));
+const summary = stats.overallAccuracyStats(accWords);
+check('overall accuracy counts the pre-upgrade era once', [summary.correct, summary.wrong], [12, 4]);
+check('legacy attempts reported separately', summary.legacyAttempts, 15);
+check('mode split excludes the pre-upgrade era', stats.accuracyByMode(accWords), [
+  { key: 'mc', correct: 1, wrong: 0, attempts: 1, pct: 100 },
+]);
 
 /* ---- timezone walk (regression guard for the frozen stats page) ---- */
 const today = srs.todayIso();
