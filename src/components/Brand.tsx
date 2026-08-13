@@ -51,7 +51,3 @@ export function Wordmark({ className = '', size = 'md' }: { className?: string; 
   );
 }
 
-/** be. here. now. */
-export function Tagline({ className = '' }: { className?: string }) {
-  return <span className={`text-[11px] tracking-[0.22em] text-slate-400 ${className}`}>be. here. now.</span>;
-}

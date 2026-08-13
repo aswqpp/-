@@ -3,6 +3,7 @@ import type { ExamType, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
+import { Select } from './Select';
 import { parseImportFile } from '../lib/importParsers';
 import {
   FIELD_LABELS,
@@ -204,18 +205,16 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
                     {FIELD_LABELS[field]}
                     {REQUIRED_FIELDS.includes(field) && <span className="text-rose-500"> *</span>}
                   </span>
-                  <select
-                    className="input flex-1"
-                    value={mapping[field] ?? ''}
-                    onChange={(e) => setFieldMapping(field, e.target.value)}
-                  >
-                    <option value="">사용 안 함</option>
-                    {rows[0]?.map((_, idx) => (
-                      <option key={idx} value={idx}>
-                        {columnLabel(idx, headerRow)}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    className="flex-1"
+                    ariaLabel={`${FIELD_LABELS[field]} 열`}
+                    value={mapping[field] === null || mapping[field] === undefined ? '' : String(mapping[field])}
+                    options={[
+                      { value: '', label: '사용 안 함' },
+                      ...(rows[0] ?? []).map((_, idx) => ({ value: String(idx), label: columnLabel(idx, headerRow) })),
+                    ]}
+                    onChange={(v) => setFieldMapping(field, v)}
+                  />
                   {OPTIONAL_DEFAULTABLE.includes(field) && mapping[field] === null && (
                     <DefaultValueControl field={field} defaults={defaults} setDefaults={setDefaults} />
                   )}
@@ -314,16 +313,12 @@ function DefaultValueControl({
     );
   }
   return (
-    <select
-      className="input w-24 shrink-0 text-xs"
+    <Select
+      className="w-28 shrink-0"
+      ariaLabel="기본 시험 종류"
       value={defaults.examType}
-      onChange={(e) => setDefaults((d) => ({ ...d, examType: e.target.value as ExamType }))}
-    >
-      {EXAM_TYPES.map((t) => (
-        <option key={t} value={t}>
-          {t}
-        </option>
-      ))}
-    </select>
+      options={EXAM_TYPES.map((t) => ({ value: t, label: t }))}
+      onChange={(v) => setDefaults((d) => ({ ...d, examType: v as ExamType }))}
+    />
   );
 }

@@ -20,6 +20,7 @@ import {
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
+import { Select } from '../components/Select';
 import { useTts } from '../hooks/useTts';
 import { isDue } from '../lib/srs';
 
@@ -284,14 +285,20 @@ export default function WordsPage({ app }: { app: UseAppState }) {
 
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <select className="input w-auto shrink-0" value={examType} onChange={(e) => setExamType(e.target.value)}>
-                <option value="all">전체 시험 종류</option>
-                {examTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <Select
+                className="w-44 shrink-0"
+                ariaLabel="시험 종류"
+                value={examType}
+                options={[
+                  { value: 'all', label: '전체 시험 종류', hint: `${scoped.length}개` },
+                  ...examTypes.map((t) => ({
+                    value: t,
+                    label: t,
+                    hint: `${scoped.filter((w) => w.examType === t).length}개`,
+                  })),
+                ]}
+                onChange={setExamType}
+              />
               {filtersActive && (
                 <button
                   onClick={resetFilters}

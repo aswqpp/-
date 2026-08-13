@@ -4,6 +4,7 @@ import { Card, FilterChip } from './ui';
 import { Icon } from './Icon';
 import { DIFFICULTY_ORDER, DIFFICULTY_LONG_LABEL, deriveDifficulty } from '../lib/difficulty';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
+import { Select } from './Select';
 
 const LEVEL_TONE: Record<DifficultyLevel, 'slate' | 'green' | 'amber' | 'rose'> = {
   unrated: 'slate',
@@ -27,10 +28,21 @@ export function ScopePicker({
   onChange: (next: Scope) => void;
   title: string;
 }) {
-  const categories = useMemo(
-    () => Array.from(new Set(words.map((w) => w.category.trim() || '미분류'))).sort((a, b) => a.localeCompare(b, 'ko')),
-    [words]
-  );
+  // Each row carries its own size, so picking a folder is an informed choice
+  // rather than a guess followed by a look at the count underneath.
+  const categoryOptions = useMemo(() => {
+    const sizes = new Map<string, number>();
+    for (const w of words) {
+      const key = w.category.trim() || '미분류';
+      sizes.set(key, (sizes.get(key) ?? 0) + 1);
+    }
+    return [
+      { value: 'all', label: '전체 카테고리', hint: `${words.length}개` },
+      ...[...sizes.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+        .map(([name, count]) => ({ value: name, label: name, hint: `${count}개` })),
+    ];
+  }, [words]);
 
   const counts = useMemo(() => {
     // Counted against the category alone, so each chip shows what it would select
@@ -71,18 +83,12 @@ export function ScopePicker({
         )}
       </div>
 
-      <select
-        className="input"
+      <Select
+        ariaLabel="카테고리"
         value={scope.category}
-        onChange={(e) => onChange({ ...scope, category: e.target.value })}
-      >
-        <option value="all">전체 카테고리</option>
-        {categories.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
+        options={categoryOptions}
+        onChange={(category) => onChange({ ...scope, category })}
+      />
 
       <div className="mt-2 flex flex-wrap gap-2">
         <FilterChip

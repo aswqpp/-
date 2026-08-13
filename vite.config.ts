@@ -23,7 +23,7 @@ export default defineConfig(({ command }) => {
         manifest: {
           name: 'beOm - 영단어 학습',
           short_name: 'beOm',
-          description: 'be. here. now. — 플래시카드와 간격 반복 복습으로 영단어를 암기하는 학습 앱',
+          description: '플래시카드와 간격 반복 복습으로 영단어를 암기하는 학습 앱',
           lang: 'ko',
           // Must sit inside `base`, or the installed app opens outside its own scope.
           start_url: base,

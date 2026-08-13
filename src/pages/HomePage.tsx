@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { computeStreak, getTodayEntry, weakWords } from '../lib/stats';
 import { atRiskWords } from '../lib/memory';
 import { GoalRing } from '../components/GoalRing';
-import { Enso, Tagline } from '../components/Brand';
+import { Enso } from '../components/Brand';
 
 const WEAK_WORDS_TOP_N = 5;
 
@@ -43,8 +43,8 @@ export default function HomePage({
 
         <div className="relative flex items-start justify-between gap-3">
           <div>
-            <Tagline />
-            <p className="mt-1.5 text-2xl font-bold text-slate-800 dark:text-slate-100">복습할 단어 {dueCount}개</p>
+            <p className="text-xs text-slate-400">오늘의 복습</p>
+            <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">복습할 단어 {dueCount}개</p>
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
             <Icon name="flame" className="h-4 w-4" />

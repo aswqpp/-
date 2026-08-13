@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ExamType, Word } from '../types';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
+import { Select } from './Select';
 import { lookupWord, posLabel, type DictionaryVariant } from '../lib/dictionaryApi';
 import { suggestEnglishWord, suggestKoreanMeanings } from '../lib/translateApi';
 
@@ -445,13 +446,12 @@ export function WordFormModal({
             )}
           </Field>
           <Field label="시험 종류">
-            <select className="input" value={form.examType} onChange={(e) => set('examType', e.target.value as ExamType)}>
-              {EXAM_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <Select
+              ariaLabel="시험 종류"
+              value={form.examType}
+              options={EXAM_TYPES.map((t) => ({ value: t, label: t }))}
+              onChange={(v) => set('examType', v as ExamType)}
+            />
           </Field>
           <p className="text-[11px] text-slate-400">난이도와 즐겨찾기는 단어장 목록이나 학습 화면에서 바로 조정할 수 있어요.</p>
         </div>
