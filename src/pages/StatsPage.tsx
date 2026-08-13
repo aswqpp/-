@@ -216,12 +216,6 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
       </Card>
 
       <Card>
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
-        <p className="mb-3 text-xs text-slate-400">난이도는 직접 정하지 않고, 각 단어의 오답률로 자동 계산돼요.</p>
-        <DifficultyDonut data={diffDist} />
-      </Card>
-
-      <Card>
         <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">복습 예정</p>
         <p className="mb-3 text-xs text-slate-400">
           오늘 <span className="font-bold text-indigo-600 dark:text-indigo-400">{forecast.todayCount}개</span> · 이번 주{' '}
@@ -247,6 +241,12 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
             );
           })}
         </div>
+      </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">난이도별 분포 ({diffDist.total}개)</p>
+        <p className="mb-3 text-xs text-slate-400">난이도는 직접 정하지 않고, 각 단어의 오답률로 자동 계산돼요.</p>
+        <DifficultyDonut data={diffDist} />
       </Card>
 
       <Card className="bg-slate-50 dark:bg-slate-900/60">

@@ -5,8 +5,7 @@ import { Icon, type IconName } from './components/Icon';
 import { getDueWords } from './lib/srs';
 import HomePage from './pages/HomePage';
 import WordsPage from './pages/WordsPage';
-import StudyPage from './pages/StudyPage';
-import QuizPage from './pages/QuizPage';
+import LearnPage, { type LearnTab } from './pages/LearnPage';
 import GamesPage from './pages/GamesPage';
 import StatsPage from './pages/StatsPage';
 import CategoryMasteryPage from './pages/CategoryMasteryPage';
@@ -15,8 +14,8 @@ import { SettingsSheet } from './components/SettingsSheet';
 const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
   { screen: 'home', label: '홈', icon: 'home' },
   { screen: 'words', label: '단어장', icon: 'book' },
+  // Quizzes live inside 학습 as a tab: same job, one nav slot.
   { screen: 'study', label: '학습', icon: 'cards' },
-  { screen: 'quiz', label: '퀴즈', icon: 'quiz' },
   { screen: 'games', label: '게임', icon: 'game' },
   { screen: 'stats', label: '통계', icon: 'chart' },
 ];
@@ -26,12 +25,24 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [pendingStudyIds, setPendingStudyIds] = useState<string[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [learnTab, setLearnTab] = useState<LearnTab>('flashcard');
 
   const dueCount = useMemo(() => getDueWords(app.state.words).length, [app.state.words]);
 
   function startFocusedReview(wordIds: string[]) {
     setPendingStudyIds(wordIds);
+    setLearnTab('flashcard');
     setScreen('study');
+  }
+
+  /** `quiz` is no longer its own screen — it opens 학습 with the quiz tab selected. */
+  function navigate(next: Screen) {
+    if (next === 'quiz') {
+      setLearnTab('quiz');
+      setScreen('study');
+      return;
+    }
+    setScreen(next);
   }
 
   return (
@@ -99,20 +110,21 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-4 sm:pb-8">
         {screen === 'home' && (
-          <HomePage app={app} dueCount={dueCount} onNavigate={setScreen} onStartReview={startFocusedReview} />
+          <HomePage app={app} dueCount={dueCount} onNavigate={navigate} onStartReview={startFocusedReview} />
         )}
         {screen === 'words' && <WordsPage app={app} />}
         {screen === 'study' && (
-          <StudyPage
+          <LearnPage
             app={app}
-            onNavigate={setScreen}
+            tab={learnTab}
+            onTabChange={setLearnTab}
+            onNavigate={navigate}
             pendingWordIds={pendingStudyIds}
             onConsumePending={() => setPendingStudyIds(null)}
           />
         )}
-        {screen === 'quiz' && <QuizPage app={app} onNavigate={setScreen} />}
-        {screen === 'games' && <GamesPage app={app} onNavigate={setScreen} />}
-        {screen === 'stats' && <StatsPage app={app} onNavigate={setScreen} />}
+        {screen === 'games' && <GamesPage app={app} onNavigate={navigate} />}
+        {screen === 'stats' && <StatsPage app={app} onNavigate={navigate} />}
         {screen === 'categories' && <CategoryMasteryPage app={app} onBack={() => setScreen('stats')} />}
       </main>
 

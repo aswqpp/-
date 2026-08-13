@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Screen, Word } from '../types';
+import type { Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -15,12 +15,15 @@ type Phase = 'setup' | 'active' | 'done';
 
 export default function StudyPage({
   app,
-  onNavigate,
+  onOpenQuiz,
+  onSessionActiveChange,
   pendingWordIds,
   onConsumePending,
 }: {
   app: UseAppState;
-  onNavigate: (s: Screen) => void;
+  onOpenQuiz: () => void;
+  /** Lets the parent hide its tab strip while a session is in progress. */
+  onSessionActiveChange?: (active: boolean) => void;
   pendingWordIds?: string[] | null;
   onConsumePending?: () => void;
 }) {
@@ -54,6 +57,10 @@ export default function StudyPage({
     setFocusedReview(focused);
     setPhase('active');
   }
+
+  useEffect(() => {
+    onSessionActiveChange?.(phase === 'active');
+  }, [phase, onSessionActiveChange]);
 
   useEffect(() => {
     if (!pendingWordIds || pendingWordIds.length === 0) return;
@@ -177,7 +184,7 @@ export default function StudyPage({
           <Button variant="secondary" className="flex-1" onClick={() => setPhase('setup')}>
             다시 학습
           </Button>
-          <Button className="flex-1" onClick={() => onNavigate('quiz')}>
+          <Button className="flex-1" onClick={onOpenQuiz}>
             퀴즈로 확인
           </Button>
         </div>

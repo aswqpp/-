@@ -59,7 +59,16 @@ function promptFor(q: QuizQuestion): string {
   return promptField(q.word, q.direction ?? 'word-to-meaning');
 }
 
-export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavigate: (s: Screen) => void }) {
+export default function QuizPage({
+  app,
+  onNavigate,
+  onSessionActiveChange,
+}: {
+  app: UseAppState;
+  onNavigate: (s: Screen) => void;
+  /** Lets the parent hide its tab strip while a session is in progress. */
+  onSessionActiveChange?: (active: boolean) => void;
+}) {
   const { words } = app.state;
   const { speak, supported } = useTts();
 
@@ -82,6 +91,10 @@ export default function QuizPage({ app, onNavigate }: { app: UseAppState; onNavi
   const [customCount, setCustomCount] = useState('');
   /** When the current question went on screen — graded against the mode's time limit. */
   const questionShownRef = useRef(Date.now());
+
+  useEffect(() => {
+    onSessionActiveChange?.(phase === 'active');
+  }, [phase, onSessionActiveChange]);
 
   function toggleType(t: QuizType) {
     setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));

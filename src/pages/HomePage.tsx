@@ -147,16 +147,6 @@ export default function HomePage({
         )}
       </Card>
 
-      <Card>
-        <p className="mb-3 text-sm font-bold text-slate-700 dark:text-slate-200">빠른 이동</p>
-        <div className="grid grid-cols-2 gap-3">
-          <QuickAction icon="book" label="단어장 관리" onClick={() => onNavigate('words')} />
-          <QuickAction icon="game" label="게임으로 복습" onClick={() => onNavigate('games')} />
-          <QuickAction icon="chart" label="학습 통계" onClick={() => onNavigate('stats')} />
-          <QuickAction icon="quiz" label="퀴즈 풀기" onClick={() => onNavigate('quiz')} />
-        </div>
-      </Card>
-
       {words.length === 0 && (
         <Card className="flex flex-col items-center gap-2 text-center">
           <Badge tone="indigo">시작하기</Badge>
@@ -170,16 +160,3 @@ export default function HomePage({
   );
 }
 
-function QuickAction({ icon, label, onClick }: { icon: 'book' | 'game' | 'chart' | 'quiz'; label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-3 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-950"
-    >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
-        <Icon name={icon} className="h-4 w-4" />
-      </span>
-      {label}
-    </button>
-  );
-}
