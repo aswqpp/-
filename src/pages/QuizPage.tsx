@@ -3,11 +3,11 @@ import type { QuizType, ReviewDirection, ReviewMode, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import { difficultyVerdict, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
-import { getDueWords } from '../lib/srs';
+import { getDueWords, todayIso } from '../lib/srs';
 import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
 import { RetentionBadge } from '../components/RetentionBadge';
 import {
@@ -74,7 +74,7 @@ export default function QuizPage({
 
   const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
-  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords)), [scopedWords]);
+  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords), todayIso(), app.model), [scopedWords, app.model]);
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice', 'listening']);
@@ -110,7 +110,7 @@ export default function QuizPage({
     questionShownRef.current = Date.now();
     // Weighted rather than uniform: words that have gone longest without a review
     // are the ones worth asking about.
-    const list = weightedSample(pool, plannedCount(pool.length));
+    const list = weightedSample(pool, plannedCount(pool.length), todayIso(), app.model);
     setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
     setCorrect(0);
@@ -151,6 +151,9 @@ export default function QuizPage({
       ms: Date.now() - questionShownRef.current,
       mode: REVIEW_MODE_BY_QUIZ_TYPE[current.type],
       dir: directionOf(current),
+      // Recorded so the half-life model knows how much of a correct answer could
+      // have been a lucky pick.
+      optionCount: current.options?.length,
     });
     if (isCorrect) setCorrect((c) => c + 1);
     else setWrong((w) => w + 1);
@@ -323,6 +326,7 @@ export default function QuizPage({
   }
 
   const liveWord = words.find((w) => w.id === current.word.id) ?? current.word;
+  const liveVerdict = difficultyVerdict(liveWord, app.model);
 
   return (
     <div className="flex flex-col gap-4">
@@ -340,8 +344,14 @@ export default function QuizPage({
         <div className="flex items-center justify-between">
           <Badge tone="indigo">{QUIZ_TYPE_LABEL[current.type]}</Badge>
           <div className="flex items-center gap-2">
-            <DifficultyBadge value={deriveDifficulty(liveWord.srs)} wrongRate={wrongRateDisplay(liveWord.srs)} />
-            <RetentionBadge value={predictedRetention(liveWord)} />
+            <DifficultyBadge
+              value={liveVerdict.level}
+              wrongRate={wrongRateDisplay(liveWord.srs)}
+              provisional={liveVerdict.provisional}
+              confidence={liveVerdict.confidence}
+              halfLifeDays={liveVerdict.halfLifeDays}
+            />
+            <RetentionBadge value={predictedRetention(liveWord, todayIso(), app.model)} />
             <FavoriteStarButton active={liveWord.favorite} onToggle={() => app.updateWord(liveWord.id, { favorite: !liveWord.favorite })} className="h-4 w-4" />
           </div>
         </div>

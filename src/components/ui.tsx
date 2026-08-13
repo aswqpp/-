@@ -146,17 +146,32 @@ const DIFFICULTY_BUTTON_TONE: Record<DifficultyLevel, string> = {
 export function DifficultyBadge({
   value,
   wrongRate,
+  provisional = false,
+  confidence = null,
+  halfLifeDays = null,
   className = '',
 }: {
   value: DifficultyLevel;
   /** Raw wrong rate 0-1, or null when the word has never been attempted. */
   wrongRate?: number | null;
+  /** True when the level comes from the wrong rate rather than the half-life model. */
+  provisional?: boolean;
+  /** Posterior confidence behind a settled verdict, 0-1. */
+  confidence?: number | null;
+  halfLifeDays?: number | null;
   className?: string;
 }) {
-  const title =
-    wrongRate === null || wrongRate === undefined
-      ? '아직 풀어본 적이 없어 난이도를 알 수 없어요 (미평가)'
-      : `오답률 ${Math.round(wrongRate * 100)}% · 난이도는 오답률로 자동 계산됩니다`;
+  const halfLifeNote =
+    halfLifeDays === null ? '' : ` · 예상 반감기 ${halfLifeDays < 10 ? halfLifeDays.toFixed(1) : Math.round(halfLifeDays)}일`;
+
+  let title: string;
+  if (wrongRate === null || wrongRate === undefined) {
+    title = '아직 풀어본 적이 없어 난이도를 알 수 없어요 (미평가)';
+  } else if (provisional) {
+    title = `잠정 판정 · 오답률 ${Math.round(wrongRate * 100)}%로 계산했어요. 복습 간격 기록이 더 쌓이면 확정됩니다${halfLifeNote}`;
+  } else {
+    title = `확정 판정 (확신도 ${Math.round((confidence ?? 0) * 100)}%) · 기억이 흐려지는 속도로 판정했어요${halfLifeNote}`;
+  }
 
   return (
     <span
@@ -164,6 +179,8 @@ export function DifficultyBadge({
       className={`inline-flex min-w-6 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
     >
       {DIFFICULTY_LABEL[value]}
+      {/* A hollow dot marks a level the model has not confirmed yet. */}
+      {provisional && <span aria-hidden className="text-[9px] opacity-60">○</span>}
     </span>
   );
 }

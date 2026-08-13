@@ -4,6 +4,7 @@ import { loadState, saveState } from '../lib/storage';
 import { mergeWords } from '../lib/backup';
 import { buildInitialState, genId } from '../data/initialState';
 import { createInitialSrs, reviewWord, withDerivedLog, type ReviewOptions } from '../lib/srs';
+import { EMPTY_MODEL, fitDeck, type DeckModel } from '../lib/halflife';
 
 /** One attempt to record, as handed in by a game finishing several words at once. */
 export interface GradeInput {
@@ -27,6 +28,37 @@ export function useAppState() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.settings.darkMode);
   }, [state.settings.darkMode]);
+
+  /**
+   * Half-life fit over the whole deck.
+   *
+   * Deliberately off the critical path. Words change on every graded answer, and on a
+   * large deck the fit takes long enough to be felt as lag on the tap that triggered
+   * it. So the previous model stays on screen and a refit is scheduled once the
+   * browser is idle — difficulty labels are in no hurry, and the debounce also
+   * collapses the burst of updates a game produces when it grades a whole board.
+   */
+  const [model, setModel] = useState<DeckModel>(EMPTY_MODEL);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) setModel(fitDeck(state.words));
+    };
+
+    const idle = window.requestIdleCallback;
+    let idleHandle: number | undefined;
+    const timer = window.setTimeout(() => {
+      if (idle) idleHandle = idle(run, { timeout: 3000 });
+      else run();
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (idleHandle !== undefined) window.cancelIdleCallback?.(idleHandle);
+    };
+  }, [state.words]);
 
   /**
    * Applies a change that touches `words`, then rebuilds the derived study log.
@@ -188,6 +220,7 @@ export function useAppState() {
 
   return {
     state,
+    model,
     storageError,
     addWord,
     addWordsBulk,

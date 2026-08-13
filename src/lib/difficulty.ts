@@ -1,4 +1,5 @@
-import type { DifficultyLevel, SrsData } from '../types';
+import type { DifficultyLevel, SrsData, Word } from '../types';
+import type { DeckModel } from './halflife';
 
 /** Display order: unknown first, then easiest → hardest. */
 export const DIFFICULTY_ORDER: DifficultyLevel[] = ['unrated', 'easy', 'medium', 'hard'];
@@ -50,4 +51,40 @@ export function deriveDifficulty(srs: SrsData): DifficultyLevel {
 export function wrongRateDisplay(srs: SrsData): number | null {
   const attempts = srs.correctCount + srs.wrongCount;
   return attempts === 0 ? null : srs.wrongCount / attempts;
+}
+
+export interface DifficultyVerdict {
+  level: DifficultyLevel;
+  /**
+   * True when the level came from the wrong rate rather than the half-life model —
+   * either the word has no measured gaps yet, or the model is not confident.
+   */
+  provisional: boolean;
+  /** Posterior confidence behind a settled verdict, 0–1. Null while provisional. */
+  confidence: number | null;
+  /** Fitted half-life in days, when the model has an estimate for this word. */
+  halfLifeDays: number | null;
+}
+
+/**
+ * The level shown on a word.
+ *
+ * The half-life model answers the right question but needs measured gaps before it
+ * will commit, and it declines to guess — most words sit at 미확정 for a long time.
+ * So its verdict wins when it has one, and the wrong rate fills in underneath,
+ * marked provisional so the two are not mistaken for each other.
+ */
+export function difficultyVerdict(word: Word, model?: DeckModel): DifficultyVerdict {
+  const estimate = model?.estimates.get(word.id);
+  const halfLifeDays = estimate?.halfLifeDays ?? null;
+
+  if (estimate && estimate.verdict === 'hard') {
+    return { level: 'hard', provisional: false, confidence: estimate.confidence, halfLifeDays };
+  }
+  if (estimate && estimate.verdict === 'easy') {
+    return { level: 'easy', provisional: false, confidence: estimate.confidence, halfLifeDays };
+  }
+
+  const level = deriveDifficulty(word.srs);
+  return { level, provisional: level !== 'unrated', confidence: null, halfLifeDays };
 }

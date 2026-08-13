@@ -10,7 +10,13 @@ import {
   FavoriteStarButton,
   FilterChip,
 } from '../components/ui';
-import { DIFFICULTY_LONG_LABEL, DIFFICULTY_ORDER, deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import {
+  DIFFICULTY_LONG_LABEL,
+  DIFFICULTY_ORDER,
+  deriveDifficulty,
+  difficultyVerdict,
+  wrongRateDisplay,
+} from '../lib/difficulty';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
@@ -427,7 +433,11 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                         </p>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <DifficultyBadge value={deriveDifficulty(w.srs)} wrongRate={wrongRateDisplay(w.srs)} />
+                        <DifficultyBadge
+                          {...difficultyVerdict(w, app.model)}
+                          value={difficultyVerdict(w, app.model).level}
+                          wrongRate={wrongRateDisplay(w.srs)}
+                        />
                         <Badge tone="indigo">{w.category || UNCATEGORIZED}</Badge>
                         <Badge>{w.examType}</Badge>
                         {isDue(w) && <Badge tone="rose">복습 필요</Badge>}

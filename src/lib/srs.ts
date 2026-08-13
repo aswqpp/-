@@ -164,9 +164,29 @@ export interface ReviewOptions {
   ms?: number | null;
   mode: ReviewMode;
   dir: ReviewDirection;
+  /** Options on screen, for multiple-choice and listening — sets the guessing floor. */
+  optionCount?: number;
   /** Overrides the per-mode table. null disables time-based grading. */
   limitMs?: number | null;
   now?: Date;
+}
+
+/**
+ * Random spread applied to each scheduled interval.
+ *
+ * Without it, the gap before a review is a deterministic function of that word's own
+ * past answers: hard words are only ever tested after a day, easy ones only after a
+ * month. Nothing then separates "fades quickly" from "was asked again quickly", and
+ * the forgetting curve cannot be estimated from the review log — the schedule has to
+ * vary on its own for the data to carry that information. It also stops whole
+ * batches of words from coming due on the same day.
+ */
+export const INTERVAL_JITTER = 0.25;
+
+export function jitterInterval(interval: number, random: () => number = Math.random): number {
+  if (interval <= 1) return interval; // a 1-day retry has nowhere to go but up
+  const factor = 1 + (random() * 2 - 1) * INTERVAL_JITTER;
+  return Math.max(1, Math.round(interval * factor));
 }
 
 /** Applies one attempt to a word's SRS record. Pure — returns a new object. */
@@ -183,13 +203,16 @@ export function reviewWord(srs: SrsData, correct: boolean, opts: ReviewOptions):
   const repetitions = correct ? (srs.repetitions ?? 0) + 1 : 0;
   const interval = nextInterval(repetitions, srs.interval ?? 1, ef);
 
+  // The ladder position is stored unjittered; only the due date is spread out, so
+  // the noise does not compound across reviews.
   const due = new Date(now);
-  due.setDate(due.getDate() + interval);
+  due.setDate(due.getDate() + jitterInterval(interval));
 
   // [fix 3] ms goes in regardless of whether it was graded: the derived log's
   // studySeconds reads nothing else, so dropping it freezes the study-time stat.
   const entry: ReviewEvent = { t: now.toISOString(), ok: correct, mode, dir, q };
   if (ms != null) entry.ms = ms;
+  if (opts.optionCount != null && opts.optionCount >= 2) entry.opt = opts.optionCount;
 
   // Trimming the oldest entries can shrink the derived counts for long-past days
   // on a word drilled more than HISTORY_LIMIT times. Accepted: the alternative is

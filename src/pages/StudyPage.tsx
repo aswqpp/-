@@ -3,12 +3,13 @@ import type { Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { deriveDifficulty, wrongRateDisplay } from '../lib/difficulty';
+import { difficultyVerdict, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
 import { getDueWords } from '../lib/srs';
 import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
+import { todayIso } from '../lib/srs';
 import { RetentionBadge } from '../components/RetentionBadge';
 
 type Phase = 'setup' | 'active' | 'done';
@@ -44,7 +45,7 @@ export default function StudyPage({
 
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
   // Most-faded first: a word 3 weeks past its due date matters more than one due today.
-  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords)), [scopedWords]);
+  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords), todayIso(), app.model), [scopedWords, app.model]);
 
   function start(list: Word[], focused = false) {
     if (list.length === 0) return;
@@ -140,7 +141,7 @@ export default function StudyPage({
               <Button
                 variant="secondary"
                 className="mt-3 w-full"
-                onClick={() => start(weightedSample(scopedWords, scopedWords.length))}
+                onClick={() => start(weightedSample(scopedWords, scopedWords.length, todayIso(), app.model))}
                 disabled={scopedWords.length === 0}
               >
                 자유 학습 시작
@@ -194,6 +195,7 @@ export default function StudyPage({
 
   const queuedWord = queue[index];
   const word = words.find((w) => w.id === queuedWord.id) ?? queuedWord;
+  const verdict = difficultyVerdict(word, app.model);
   const frontText = frontIsWord ? word.word : word.meaning;
   const backText = frontIsWord ? word.meaning : word.word;
 
@@ -217,8 +219,14 @@ export default function StudyPage({
 
       <div className="flex items-center justify-center gap-2">
         <FavoriteStarButton active={word.favorite} onToggle={() => app.updateWord(word.id, { favorite: !word.favorite })} className="h-5 w-5" />
-        <DifficultyBadge value={deriveDifficulty(word.srs)} wrongRate={wrongRateDisplay(word.srs)} />
-        <RetentionBadge value={predictedRetention(word)} />
+        <DifficultyBadge
+          value={verdict.level}
+          wrongRate={wrongRateDisplay(word.srs)}
+          provisional={verdict.provisional}
+          confidence={verdict.confidence}
+          halfLifeDays={verdict.halfLifeDays}
+        />
+        <RetentionBadge value={predictedRetention(word, todayIso(), app.model)} />
       </div>
 
       <div className="flip-scene mt-1">

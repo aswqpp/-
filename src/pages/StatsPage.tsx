@@ -27,6 +27,7 @@ import { DifficultyDonut } from '../components/DifficultyDonut';
 import { WeekdayPattern } from '../components/WeekdayPattern';
 import { MemoryStageBar } from '../components/MemoryStageBar';
 import { EASY_AT, HARD_AT } from '../lib/difficulty';
+import { VERDICT_CONFIDENCE, VERDICT_MARGIN_SIGMA } from '../lib/halflife';
 
 const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
 const CATEGORY_PREVIEW_COUNT = 3;
@@ -58,7 +59,7 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
   const totals = useMemo(() => studyTotals(log), [log]);
   const bestStreak = useMemo(() => longestStreak(log), [log]);
   const weekday = useMemo(() => weekdayPattern(log), [log]);
-  const stages = useMemo(() => memoryStageDistribution(words), [words]);
+  const stages = useMemo(() => memoryStageDistribution(words, app.model), [words, app.model]);
   const retention = useMemo(() => retentionStats(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
   const [formulaOpen, setFormulaOpen] = useState(false);
@@ -267,6 +268,35 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
         {!formulaOpen && <p className="mt-1.5 pl-9 text-[11px] text-slate-400">수식과 기준을 펼쳐서 볼 수 있어요.</p>}
 
         <div className={formulaOpen ? 'animate-pop-in' : 'hidden'}>
+        <p className="mt-2 text-xs font-bold text-slate-600 dark:text-slate-300">① 확정 판정 — 잊는 속도로 재기</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          몇 번 틀렸는지만 세면, 40일 만에 다시 보고 틀린 단어와 하루 만에 다시 보고 틀린 단어를 구분할 수 없다.
+          그래서 각 단어가 <b>얼마나 빨리 흐려지는지</b>를 직접 잰다.
+        </p>
+        <div className="mt-2 overflow-x-auto">
+          <code className="block whitespace-nowrap rounded-lg bg-white px-3 py-2 text-[11px] text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            맞힐 확률 = 찍기 확률 + (1 − 찍기 확률) × 2^(−지난 일수 ÷ 반감기)
+          </code>
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          복습 사이의 간격과 정답 여부를 모아 단어별 <b>반감기</b>(기억이 절반으로 떨어지는 데 걸리는 일수)를 추정한다.
+          연습을 쌓을수록 반감기가 늘어나는 정도, 모드별·방향별 난이도 차이는 단어장 전체에서 함께 추정해 빼낸다.
+          객관식은 찍어서 맞을 수 있으므로 선택지 수만큼의 찍기 확률을 빼고 계산한다.
+        </p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          단어장 평균보다 {VERDICT_MARGIN_SIGMA}σ 이상 빠르거나 느리다고 <b>{Math.round(VERDICT_CONFIDENCE * 100)}% 이상</b>{' '}
+          확신할 때만 어려움·쉬움을 확정한다. 확신이 부족하면 판정하지 않는다 — 근거 없이 이름표를 붙이지 않기 위해서다.
+        </p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          한계: <b>쉬움 확정은 거의 나오지 않는다.</b> 쉬운 단어일수록 복습 간격이 길어져 관측 자체가 드물고, 간격이
+          반감기보다 훨씬 짧으면 "아직 안 잊었다"는 사실에서 얻을 정보가 거의 없다. 반대로 어려운 단어는 자주
+          출제되므로 확정이 잘 된다.
+        </p>
+
+        <p className="mt-4 text-xs font-bold text-slate-600 dark:text-slate-300">② 잠정 판정(○) — 보정 오답률</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          ①이 아직 확신하지 못하는 단어는 오답률로 임시 표시하고, 칩에 작은 ○을 붙인다.
+        </p>
         <div className="mt-2 overflow-x-auto">
           <code className="block whitespace-nowrap rounded-lg bg-white px-3 py-2 text-[11px] text-slate-700 dark:bg-slate-800 dark:text-slate-200">
             보정 오답률 = (틀린 횟수 + 1) ÷ (전체 시도 횟수 + 2)
@@ -303,6 +333,14 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
           <li>· 3번 맞고 3번 틀림 → (3+1) ÷ (6+2) = 0.50 → <b className="text-amber-500">보통</b></li>
           <li>· 5번 맞고 0번 틀림 → (0+1) ÷ (5+2) ≈ 0.14 → <b className="text-emerald-500">쉬움</b></li>
         </ul>
+
+        {app.model.ratedWords > 0 && (
+          <p className="mt-3 rounded-lg bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            지금 단어장: 반감기를 잰 단어 <b>{app.model.ratedWords}개</b> (복습 간격 기록 {app.model.totalObservations}건) ·
+            중앙 반감기 <b>{Math.round(app.model.medianHalfLife)}일</b> · 단어 간 편차 σ {app.model.sigma.toFixed(2)} ·
+            연속 정답 1회당 반감기 ×{(2 ** app.model.beta[1]).toFixed(2)}
+          </p>
+        )}
         </div>
       </Card>
     </div>

@@ -55,6 +55,7 @@ function normalizeReviewEvent(raw: unknown): ReviewEvent | null {
     q: num(r.q, r.ok === true ? 5 : 2),
   };
   if (typeof r.ms === 'number' && Number.isFinite(r.ms) && r.ms >= 0) event.ms = r.ms;
+  if (typeof r.opt === 'number' && Number.isFinite(r.opt) && r.opt >= 2) event.opt = Math.round(r.opt);
   return event;
 }
 

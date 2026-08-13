@@ -27,6 +27,13 @@ export interface ReviewEvent {
   q: number;
   /** Response time in ms. Recorded even for modes that ignore it when grading. */
   ms?: number;
+  /**
+   * Number of options on screen, for multiple-choice and listening attempts.
+   * Sets the guessing floor in the half-life model: a 1-in-3 answer is weaker
+   * evidence of memory than a 1-in-5 one. Absent on attempts recorded before
+   * this field existed, which fall back to four.
+   */
+  opt?: number;
 }
 
 /**
