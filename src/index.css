@@ -2,6 +2,92 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * beOm brand palette.
+ *
+ * The scales Tailwind ships are redefined here rather than swapped out at every
+ * call site: the app already uses them semantically — neutral for surfaces and
+ * type, one accent for anything interactive, a warm one for highlights, plus
+ * success and danger — so re-pointing the scales re-themes the whole app at once
+ * and leaves no stragglers behind.
+ *
+ *   Light   background #F7F5F0 · surface #FFFFFF · text #1A1A1A
+ *   Dark    background #111111 · surface #1B1B1B · text #F5F5F0
+ *   Accent  #8A9A5B / #A8C686   Highlight #C9A227 / #D8B44A
+ */
+@theme {
+  /* Neutral — 여백과 본질. A warm gray, never blue. */
+  --color-slate-50: #f7f5f0; /* light background */
+  --color-slate-100: #efebe2;
+  --color-slate-200: #e2dcd0;
+  --color-slate-300: #cfc8b9;
+  --color-slate-400: #a29b8d;
+  --color-slate-500: #787266;
+  --color-slate-600: #57524a;
+  --color-slate-700: #3a3733;
+  --color-slate-800: #1a1a1a; /* light text */
+  --color-slate-900: #1b1b1b; /* dark surface */
+  --color-slate-950: #111111; /* dark background */
+
+  /* Accent — 조화와 생명. Sage, the app's one interactive colour. */
+  --color-indigo-50: #f1f4e8;
+  --color-indigo-100: #e2e9d0;
+  --color-indigo-200: #ccd9ae;
+  --color-indigo-300: #b8cd93;
+  --color-indigo-400: #a8c686; /* dark-mode accent */
+  --color-indigo-500: #95a96a;
+  --color-indigo-600: #8a9a5b; /* light-mode accent */
+  --color-indigo-700: #71804a;
+  --color-indigo-800: #59653a;
+  --color-indigo-900: #414a2a;
+  --color-indigo-950: #1f2416;
+
+  /* Deep moss, for the second series on a chart and the home gradient. */
+  --color-violet-300: #9db08a;
+  --color-violet-400: #7f9668;
+  --color-violet-500: #5f7a4c;
+  --color-violet-600: #4c6440;
+  --color-violet-700: #3d5134;
+
+  /* Highlight — 깨달음과 빛. */
+  --color-amber-50: #faf3e0;
+  --color-amber-100: #f4e7c2;
+  --color-amber-200: #ecd694;
+  --color-amber-300: #e0c469;
+  --color-amber-400: #d8b44a; /* dark-mode highlight */
+  --color-amber-500: #c9a227; /* light-mode highlight */
+  --color-amber-600: #a8871f;
+  --color-amber-700: #866c19;
+  --color-amber-800: #5f4d12;
+  --color-amber-900: #40340c;
+  --color-amber-950: #241d07;
+
+  /* Success — a deeper forest, so "correct" stays distinct from the sage accent. */
+  --color-emerald-50: #eaf2ea;
+  --color-emerald-300: #86b189;
+  --color-emerald-400: #6a9c6e;
+  --color-emerald-500: #4f7a52;
+  --color-emerald-600: #3f6442;
+  --color-emerald-700: #335236;
+  --color-emerald-950: #17251a;
+
+  /* Danger — earthen terracotta rather than a signal red, to sit in the palette. */
+  --color-rose-50: #fbeeec;
+  --color-rose-100: #f5d9d5;
+  --color-rose-300: #dc9a91;
+  --color-rose-400: #cd7466;
+  --color-rose-500: #b4483c;
+  --color-rose-600: #973a30;
+  --color-rose-700: #7a2f27;
+  --color-rose-800: #5c231d;
+  --color-rose-900: #3f1814;
+  --color-rose-950: #26100d;
+
+  /* Streak flame borrows the highlight rather than a stray orange. */
+  --color-orange-300: #e0c469;
+  --color-orange-500: #c9a227;
+}
+
 :root {
   color-scheme: light;
 }

@@ -200,7 +200,7 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">앱 정보</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">IbeOm · 오프라인 사용 가능</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">beOm · be. here. now. · 오프라인 사용 가능</p>
             </div>
             <Badge tone="indigo">PWA</Badge>
           </div>

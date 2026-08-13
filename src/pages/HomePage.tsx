@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { computeStreak, getTodayEntry, weakWords } from '../lib/stats';
 import { atRiskWords } from '../lib/memory';
 import { GoalRing } from '../components/GoalRing';
+import { Enso, Tagline } from '../components/Brand';
 
 const WEAK_WORDS_TOP_N = 5;
 
@@ -33,42 +34,43 @@ export default function HomePage({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white">
-        <div className="flex items-start justify-between">
+      {/* The ensō sits behind the hero as a watermark — present, not shouting. */}
+      <Card className="relative overflow-hidden">
+        <Enso
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 text-slate-100 opacity-70 dark:text-slate-800"
+          dotClassName="fill-slate-100 dark:fill-slate-800"
+        />
+
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm text-indigo-100">오늘도 단어 학습 시작해볼까요?</p>
-            <p className="mt-1 text-2xl font-bold">복습할 단어 {dueCount}개</p>
+            <Tagline />
+            <p className="mt-1.5 text-2xl font-bold text-slate-800 dark:text-slate-100">복습할 단어 {dueCount}개</p>
           </div>
-          <div className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-sm font-bold">
-            <Icon name="flame" className="h-4 w-4 text-orange-300" />
-            {streak}일 연속
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <Icon name="flame" className="h-4 w-4" />
+            {streak}일
           </div>
         </div>
-        <div className="mt-4 border-t border-white/20 pt-3">
+
+        <div className="relative mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
           <GoalRing done={studiedToday} goal={app.state.settings.dailyGoal} />
         </div>
 
         {/* Three shortcuts on one row: nowrap + smaller type keeps 취약 단어 on one line. */}
-        <div className="mt-4 flex gap-2 [&_button]:whitespace-nowrap [&_button]:px-2 [&_button]:text-xs">
+        <div className="relative mt-4 flex gap-2 [&_button]:whitespace-nowrap [&_button]:px-2 [&_button]:text-xs">
           <Button
-            variant="secondary"
-            className="flex-1 bg-white text-indigo-700 hover:bg-indigo-50"
+            className="flex-1"
             onClick={() => onNavigate('study')}
             disabled={dueCount === 0 && words.length === 0}
           >
             <Icon name="cards" className="h-4 w-4" /> 학습
           </Button>
-          <Button
-            variant="secondary"
-            className="flex-1 bg-white/15 text-white hover:bg-white/25"
-            onClick={() => onNavigate('quiz')}
-            disabled={words.length < 2}
-          >
+          <Button variant="secondary" className="flex-1" onClick={() => onNavigate('quiz')} disabled={words.length < 2}>
             <Icon name="quiz" className="h-4 w-4" /> 퀴즈
           </Button>
           <Button
             variant="secondary"
-            className="flex-1 bg-white/15 text-white hover:bg-white/25"
+            className="flex-1"
             onClick={() => onStartReview(weak.map((w) => w.word.id))}
             disabled={weak.length === 0}
           >

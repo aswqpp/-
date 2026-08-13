@@ -211,8 +211,23 @@ let case1 = srs.createInitialSrs();
 case1 = srs.reviewWord(case1, true, { ms: 3000, mode: 'flashcard', dir: 'w2m', now: morning });
 case1 = srs.reviewWord(case1, true, { ms: 3000, mode: 'flashcard', dir: 'w2m', now: morning });
 check('case 1: interval 6 at 08:00 local', case1.interval, 6);
-check('case 1: dueDate', case1.dueDate, '2026-08-18');
 check('case 1: lastReviewed', case1.lastReviewed, '2026-08-12');
+// The ladder position stays exact; only the due date is spread, so the check is a
+// range rather than the spec's single date. Both ends must still land on the right
+// calendar day — the morning hour is what the old UTC formatting got wrong.
+const jitterLow = srs.addDays('2026-08-12', Math.max(1, Math.round(6 * (1 - srs.INTERVAL_JITTER))));
+const jitterHigh = srs.addDays('2026-08-12', Math.round(6 * (1 + srs.INTERVAL_JITTER)));
+check(
+  `case 1: dueDate within the jittered window ${jitterLow}..${jitterHigh}`,
+  case1.dueDate >= jitterLow && case1.dueDate <= jitterHigh,
+  true
+);
+
+/* interval jitter */
+check('jitter leaves a 1-day retry alone', srs.jitterInterval(1, () => 0), 1);
+check('jitter floor', srs.jitterInterval(10, () => 0), Math.round(10 * (1 - srs.INTERVAL_JITTER)));
+check('jitter ceiling', srs.jitterInterval(10, () => 1), Math.round(10 * (1 + srs.INTERVAL_JITTER)));
+check('jitter midpoint is the plain interval', srs.jitterInterval(10, () => 0.5), 10);
 
 /* 2. Five straight correct answers on a new word → [1, 6, 17, 49, 147] */
 let case2 = srs.createInitialSrs();

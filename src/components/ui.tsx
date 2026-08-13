@@ -38,7 +38,11 @@ export function SectionTitle({ children, action }: PropsWithChildren<{ action?: 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-indigo-300',
+  // Dark type on the sage accent, not white: white on #8A9A5B is only 3.1:1, while
+  // near-black on it is 5.7:1. The accent is a mid-tone by design, so the label has
+  // to go dark for it to stay readable.
+  primary:
+    'bg-indigo-600 text-slate-900 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-indigo-200 dark:bg-indigo-400 dark:hover:bg-indigo-300 dark:active:bg-indigo-500',
   secondary:
     'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
   ghost: 'bg-transparent text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',

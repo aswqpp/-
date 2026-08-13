@@ -21,17 +21,17 @@ export default defineConfig(({ command }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'icon.svg'],
         manifest: {
-          name: 'IbeOm - 영단어 학습',
-          short_name: 'IbeOm',
-          description: '플래시카드와 간격 반복 복습으로 영단어를 암기하는 학습 앱',
+          name: 'beOm - 영단어 학습',
+          short_name: 'beOm',
+          description: 'be. here. now. — 플래시카드와 간격 반복 복습으로 영단어를 암기하는 학습 앱',
           lang: 'ko',
           // Must sit inside `base`, or the installed app opens outside its own scope.
           start_url: base,
           scope: base,
           display: 'standalone',
           orientation: 'portrait',
-          background_color: '#f8fafc',
-          theme_color: '#4f46e5',
+          background_color: '#f7f5f0',
+          theme_color: '#8a9a5b',
           icons: [
             { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
             { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },

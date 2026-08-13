@@ -10,6 +10,7 @@ import GamesPage from './pages/GamesPage';
 import StatsPage from './pages/StatsPage';
 import CategoryMasteryPage from './pages/CategoryMasteryPage';
 import { SettingsSheet } from './components/SettingsSheet';
+import { Wordmark } from './components/Brand';
 
 const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
   { screen: 'home', label: '홈', icon: 'home' },
@@ -48,14 +49,8 @@ export default function App() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
-        <button
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-600 dark:text-indigo-400"
-          onClick={() => setScreen('home')}
-        >
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white dark:bg-indigo-500">
-            <Icon name="cards" className="h-5 w-5" />
-          </span>
-          IbeOm
+        <button className="flex items-center" onClick={() => setScreen('home')} aria-label="홈으로">
+          <Wordmark />
         </button>
         {/* Dark mode lives in the settings sheet now — it is a preference you set once,
             not something worth a permanent slot in the header. */}
