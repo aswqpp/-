@@ -1,5 +1,5 @@
 import type { AppState } from '../types';
-import { DEFAULT_AT_RISK_THRESHOLD, DEFAULT_DAILY_GOAL } from '../lib/storage';
+import { DEFAULT_AT_RISK_THRESHOLD, DEFAULT_DAILY_GOAL, DEFAULT_FOCUSED_QUIZ_TYPES } from '../lib/storage';
 import { DEFAULT_NEW_CAP, DEFAULT_REVIEW_CAP } from '../lib/scheduling';
 
 function genId(): string {
@@ -26,6 +26,9 @@ export function buildInitialState(): AppState {
       autoSpeakExample: false,
       atRiskThreshold: DEFAULT_AT_RISK_THRESHOLD,
       focusedReviewMode: 'flashcard',
+      focusedQuizTypes: [...DEFAULT_FOCUSED_QUIZ_TYPES],
+      focusedQuizDirection: 'word-to-meaning',
+      focusedQuizOptionCount: 4,
       dailyReviewCap: DEFAULT_REVIEW_CAP,
       dailyNewCap: DEFAULT_NEW_CAP,
       lastBackupAt: null,

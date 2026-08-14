@@ -448,6 +448,29 @@ check(
   { review: 7, fresh: 0, backup: null }
 );
 
+const focusedQuiz = (raw) =>
+  storage.normalizeState({ version: 4, words: [], log: [], settings: raw }, 4).settings;
+check(
+  'focused quiz types: bad entries dropped, duplicates collapsed',
+  focusedQuiz({ focusedQuizTypes: ['spelling', 'nope', 'spelling', 'listening'] }).focusedQuizTypes,
+  ['spelling', 'listening']
+);
+check(
+  'an empty type list falls back to 객관식',
+  focusedQuiz({ focusedQuizTypes: [] }).focusedQuizTypes,
+  ['multiple-choice']
+);
+check(
+  'option count is clamped to the offered range',
+  [focusedQuiz({ focusedQuizOptionCount: 9 }).focusedQuizOptionCount, focusedQuiz({ focusedQuizOptionCount: 1 }).focusedQuizOptionCount],
+  [5, 3]
+);
+check(
+  'direction falls back to 단어 → 뜻',
+  focusedQuiz({ focusedQuizDirection: 'sideways' }).focusedQuizDirection,
+  'word-to-meaning'
+);
+
 /* ---- timezone walk (regression guard for the frozen stats page) ---- */
 const today = srs.todayIso();
 let cursor = today;

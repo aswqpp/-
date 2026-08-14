@@ -19,6 +19,7 @@ import {
   promptField,
   type QuizQuestion,
   type McDirection,
+  type McSettings,
 } from '../lib/quiz';
 
 type Phase = 'setup' | 'active' | 'done';
@@ -121,9 +122,9 @@ export default function QuizPage({
   }
 
   /** Puts a ready-made question list on screen. `pool` is where distractors come from. */
-  function begin(list: Word[], pool: Word[], types: QuizType[], label: string | null) {
+  function begin(list: Word[], pool: Word[], types: QuizType[], label: string | null, mc: McSettings) {
     questionShownRef.current = Date.now();
-    setQuestions(buildQuiz(list, pool, types, { direction: mcDirection, optionCount: mcOptionCount }));
+    setQuestions(buildQuiz(list, pool, types, mc));
     setIndex(0);
     setCorrect(0);
     setWrong(0);
@@ -145,13 +146,17 @@ export default function QuizPage({
     // Weighted rather than uniform: words that have gone longest without a review
     // are the ones worth asking about.
     const list = weightedSample(pool, plannedCount(pool.length), todayIso(), app.model);
-    begin(list, scopedWords, selectedTypes, null);
+    begin(list, scopedWords, selectedTypes, null, { direction: mcDirection, optionCount: mcOptionCount });
   }
 
   /**
    * A focused review asks about every word it was handed, in the order it was given
    * (most faded first), and draws distractors from the whole vocabulary — the scope
-   * and question-count settings belong to the setup screen, which was skipped.
+   * and question-count controls belong to the setup screen, which was skipped.
+   *
+   * Its question types come from 설정 → 학습 설정 rather than from this page's own
+   * checkboxes: the learner never sees this page's setup screen on the way in, so the
+   * one place they can answer "어떤 유형으로?" is the same place they chose 퀴즈.
    */
   useEffect(() => {
     if (!pending || pending.ids.length === 0) return;
@@ -160,8 +165,11 @@ export default function QuizPage({
     const targeted = pending.ids.map((id) => byId.get(id)).filter((w): w is Word => w !== undefined);
     onConsumePending?.();
     if (targeted.length === 0) return;
-    // 유형을 하나도 안 골라둔 상태로 들어올 수 있으니 객관식으로 시작해요.
-    begin(targeted, words, selectedTypes.length > 0 ? selectedTypes : ['multiple-choice'], pending.label);
+    const { focusedQuizTypes, focusedQuizDirection, focusedQuizOptionCount } = app.state.settings;
+    begin(targeted, words, focusedQuizTypes, pending.label, {
+      direction: focusedQuizDirection,
+      optionCount: focusedQuizOptionCount,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
 

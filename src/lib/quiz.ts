@@ -1,6 +1,6 @@
-import type { QuizType, Word } from '../types';
+import type { McDirection, QuizType, Word } from '../types';
 
-export type McDirection = 'word-to-meaning' | 'meaning-to-word';
+export type { McDirection };
 
 export interface QuizQuestion {
   word: Word;

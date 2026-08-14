@@ -4,6 +4,7 @@ import type {
   ExamType,
   MigrationInfo,
   PreCount,
+  QuizType,
   ReviewDirection,
   ReviewEvent,
   ReviewMode,
@@ -18,6 +19,10 @@ const STORAGE_KEY = 'voca-app-state-v1';
 export const DEFAULT_DAILY_GOAL = 20;
 export const DEFAULT_AT_RISK_THRESHOLD = 0.8;
 
+/** 객관식 alone by default: it is the one type every word can be asked in. */
+export const DEFAULT_FOCUSED_QUIZ_TYPES: QuizType[] = ['multiple-choice'];
+
+const QUIZ_TYPES: QuizType[] = ['multiple-choice', 'spelling', 'listening'];
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
 const REVIEW_MODES: ReviewMode[] = ['mc', 'listening', 'spelling', 'flashcard', 'game'];
 const REVIEW_DIRECTIONS: ReviewDirection[] = ['w2m', 'm2w'];
@@ -144,6 +149,12 @@ function normalizeLog(raw: unknown): StudyLogEntry[] {
   return raw.map(normalizeLogEntry).filter((l): l is StudyLogEntry => l !== null);
 }
 
+/** Quiz types for a focused review. Never empty — an empty list would quiz nothing. */
+function quizTypes(raw: unknown): QuizType[] {
+  const picked = Array.isArray(raw) ? raw.filter((t): t is QuizType => QUIZ_TYPES.includes(t as QuizType)) : [];
+  return picked.length > 0 ? [...new Set(picked)] : [...DEFAULT_FOCUSED_QUIZ_TYPES];
+}
+
 /** A stored 'YYYY-MM-DD', or null for anything else. */
 function localDate(raw: unknown): string | null {
   return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
@@ -166,6 +177,9 @@ function normalizeSettings(raw: unknown): AppSettings {
     autoSpeakExample: r.autoSpeakExample === true,
     atRiskThreshold: Math.min(0.95, Math.max(0, num(r.atRiskThreshold, DEFAULT_AT_RISK_THRESHOLD))),
     focusedReviewMode: r.focusedReviewMode === 'quiz' ? 'quiz' : 'flashcard',
+    focusedQuizTypes: quizTypes(r.focusedQuizTypes),
+    focusedQuizDirection: r.focusedQuizDirection === 'meaning-to-word' ? 'meaning-to-word' : 'word-to-meaning',
+    focusedQuizOptionCount: Math.min(5, Math.max(3, Math.round(num(r.focusedQuizOptionCount, 4)))),
     dailyReviewCap: capValue(r.dailyReviewCap, DEFAULT_REVIEW_CAP),
     dailyNewCap: capValue(r.dailyNewCap, DEFAULT_NEW_CAP),
     lastBackupAt: localDate(r.lastBackupAt),

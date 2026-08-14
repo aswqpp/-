@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import type { AppState } from '../types';
+import type { AppState, QuizType } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
@@ -38,6 +38,14 @@ const FOCUSED_REVIEW_CHOICES = [
   { value: 'flashcard', label: '플래시카드로 복습' },
   { value: 'quiz', label: '퀴즈로 복습' },
 ];
+
+const FOCUSED_QUIZ_TYPE_LABEL: Record<QuizType, string> = {
+  'multiple-choice': '객관식',
+  spelling: '스펠링 입력',
+  listening: '듣고 뜻 맞추기',
+};
+
+const OPTION_COUNTS = [3, 4, 5];
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -228,7 +236,7 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
                 홈 화면의 망각 위험군 알림과 취약 단어 복습을 눌렀을 때{' '}
                 {settings.focusedReviewMode === 'quiz'
-                  ? '그 단어들로 바로 퀴즈를 내요. 유형·선택지 설정은 퀴즈 탭에서 고른 값을 그대로 써요.'
+                  ? '그 단어들로 아래 설정대로 바로 퀴즈를 내요.'
                   : '그 단어들로 플래시카드 세션을 시작해요.'}
                 {settings.focusedReviewMode === 'quiz' && words.length < 2 && (
                   <span className="mt-0.5 block text-amber-600 dark:text-amber-400">
@@ -236,6 +244,76 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
                   </span>
                 )}
               </p>
+
+              {settings.focusedReviewMode === 'quiz' && (
+                <div className="mt-3 flex flex-col gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">출제 유형</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(Object.keys(FOCUSED_QUIZ_TYPE_LABEL) as QuizType[]).map((t) => {
+                        const on = settings.focusedQuizTypes.includes(t);
+                        // The last one on cannot be switched off — a quiz needs a type.
+                        const locked = on && settings.focusedQuizTypes.length === 1;
+                        return (
+                          <Chip
+                            key={t}
+                            active={on}
+                            disabled={locked}
+                            onClick={() =>
+                              app.updateSettings({
+                                focusedQuizTypes: on
+                                  ? settings.focusedQuizTypes.filter((x) => x !== t)
+                                  : [...settings.focusedQuizTypes, t],
+                              })
+                            }
+                          >
+                            {FOCUSED_QUIZ_TYPE_LABEL[t]}
+                          </Chip>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-slate-400">
+                      두 개 이상 고르면 문제마다 번갈아 나와요.
+                    </p>
+                  </div>
+
+                  {settings.focusedQuizTypes.includes('multiple-choice') && (
+                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">객관식 방향</p>
+                        <div className="flex gap-1.5">
+                          <Chip
+                            active={settings.focusedQuizDirection === 'word-to-meaning'}
+                            onClick={() => app.updateSettings({ focusedQuizDirection: 'word-to-meaning' })}
+                          >
+                            단어 → 뜻
+                          </Chip>
+                          <Chip
+                            active={settings.focusedQuizDirection === 'meaning-to-word'}
+                            onClick={() => app.updateSettings({ focusedQuizDirection: 'meaning-to-word' })}
+                          >
+                            뜻 → 단어
+                          </Chip>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">선택지 개수</p>
+                        <div className="flex gap-1.5">
+                          {OPTION_COUNTS.map((n) => (
+                            <Chip
+                              key={n}
+                              active={settings.focusedQuizOptionCount === n}
+                              onClick={() => app.updateSettings({ focusedQuizOptionCount: n })}
+                            >
+                              {n}개
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </Section>
 
             <Section title="발음 자동 재생" bordered>
@@ -389,6 +467,35 @@ function Section({
       </p>
       {children}
     </section>
+  );
+}
+
+/** A small selectable pill. Disabled when it is the last choice standing. */
+function Chip({
+  active,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+        active
+          ? 'border-indigo-500 bg-indigo-600 text-white'
+          : 'border-slate-200 text-slate-500 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-400'
+      } ${disabled ? 'cursor-default opacity-70' : ''}`}
+    >
+      {children}
+    </button>
   );
 }
 

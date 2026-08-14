@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
@@ -72,8 +72,8 @@ export function Select({
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
 
-  useLayoutEffect(() => {
-    if (!open) return;
+  /** Pins the portalled list to the trigger, in viewport coordinates. */
+  const place = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -89,7 +89,11 @@ export function Select({
       maxHeight: Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, room)),
       ...(flip ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
     });
-  }, [open]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   // Opening starts on the current value; typing a filter restarts at the top.
   useEffect(() => {
@@ -114,7 +118,17 @@ export function Select({
       // popover shut the moment it was scrolled and only the first screenful of
       // options could ever be reached.
       if (listRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
+
+      // Any other scroll moves the trigger, and the list is positioned in viewport
+      // coordinates — so follow it rather than closing. Closing on the surrounding
+      // scroll used to lose the list to a momentum scroll still settling under the
+      // tap that opened it. It only shuts once the trigger is off screen.
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) {
+        setOpen(false);
+        return;
+      }
+      place();
     };
     const onResize = () => setOpen(false);
 
@@ -126,7 +140,7 @@ export function Select({
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };
-  }, [open]);
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return;

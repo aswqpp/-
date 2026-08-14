@@ -126,6 +126,14 @@ export interface AppSettings {
    * session or a quiz over those same words.
    */
   focusedReviewMode: FocusedReviewMode;
+  /**
+   * How a focused review is quizzed. Kept separate from the quiz tab's own controls:
+   * the focused session skips the setup screen, so it needs its own answer.
+   * Never empty.
+   */
+  focusedQuizTypes: QuizType[];
+  focusedQuizDirection: McDirection;
+  focusedQuizOptionCount: number;
   /** Most words with a history to put up for review in one day. 0 = 무제한. */
   dailyReviewCap: number;
   /** Most never-seen words to introduce in one day. 0 = 무제한. */
@@ -168,6 +176,9 @@ export interface AppState {
 }
 
 export type QuizType = 'multiple-choice' | 'spelling' | 'listening';
+
+/** Which way a multiple-choice question is asked. */
+export type McDirection = 'word-to-meaning' | 'meaning-to-word';
 
 export type Screen =
   | 'home'
