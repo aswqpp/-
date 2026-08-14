@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AppSettings, AppState, Word } from '../types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AppSettings, AppState, SrsData, Word } from '../types';
 import { loadState, saveState } from '../lib/storage';
 import { mergeWords } from '../lib/backup';
 import { buildInitialState, genId } from '../data/initialState';
-import { createInitialSrs, reviewWord, withDerivedLog, type ReviewOptions } from '../lib/srs';
+import { addDays, createInitialSrs, reviewWord, todayIso, withDerivedLog, type ReviewOptions } from '../lib/srs';
 import { EMPTY_MODEL, fitDeck, type DeckModel } from '../lib/halflife';
 
 /** One attempt to record, as handed in by a game finishing several words at once. */
@@ -12,6 +12,14 @@ export interface GradeInput {
   correct: boolean;
   opts: ReviewOptions;
 }
+
+/** One reversible grading step: the SRS records exactly as they were before it. */
+interface UndoEntry {
+  words: { id: string; srs: SrsData }[];
+}
+
+/** Deep enough to walk back a bad patch, shallow enough to stay small in memory. */
+const UNDO_LIMIT = 50;
 
 export function useAppState() {
   const [state, setState] = useState<AppState>(() => loadState() ?? buildInitialState());
@@ -79,6 +87,9 @@ export function useAppState() {
   /** Replaces everything with a restored backup. */
   const replaceState = useCallback(
     (next: AppState) => {
+      // Snapshots of words that no longer exist can only mislead.
+      undoStack.current = [];
+      setUndoDepth(0);
       updateWords(() => next);
     },
     [updateWords]
@@ -150,6 +161,22 @@ export function useAppState() {
     }));
   }, []);
 
+  /**
+   * Pushes a word's next review out by `days` and nothing else.
+   *
+   * Deliberately not a grading step: ease, streak and history stay exactly as they
+   * are, because taking a break from a word is not evidence about how well it is
+   * known. Used by 누수 단어 쉬어가기.
+   */
+  const restWord = useCallback((id: string, days: number) => {
+    setState((s) => ({
+      ...s,
+      words: s.words.map((w) =>
+        w.id === id ? { ...w, srs: { ...w.srs, dueDate: addDays(todayIso(), days) } } : w
+      ),
+    }));
+  }, []);
+
   const deleteWord = useCallback(
     (id: string) => {
       updateWords((s) => ({ ...s, words: s.words.filter((w) => w.id !== id) }));
@@ -168,24 +195,71 @@ export function useAppState() {
   );
 
   /**
+   * Snapshots taken before each grading step, newest last.
+   *
+   * A ref rather than state: the snapshots are only ever read when an undo happens,
+   * and re-rendering the whole app on every graded answer to store them would be
+   * wasted work. `undoDepth` exists purely so buttons can enable themselves.
+   */
+  const undoStack = useRef<UndoEntry[]>([]);
+  const [undoDepth, setUndoDepth] = useState(0);
+
+  const pushUndo = useCallback((entry: UndoEntry) => {
+    if (entry.words.length === 0) return;
+    undoStack.current = [...undoStack.current, entry].slice(-UNDO_LIMIT);
+    setUndoDepth(undoStack.current.length);
+  }, []);
+
+  /**
+   * Puts the words of the most recent grading step back exactly as they were.
+   *
+   * Nothing else has to be unwound: the study log is derived from the review history,
+   * so restoring the SRS record — history included — takes the day's totals, the
+   * streak and the difficulty model back with it.
+   */
+  const undoLastGrade = useCallback(() => {
+    const entry = undoStack.current[undoStack.current.length - 1];
+    if (!entry) return false;
+    undoStack.current = undoStack.current.slice(0, -1);
+    setUndoDepth(undoStack.current.length);
+
+    const restore = new Map(entry.words.map((w) => [w.id, w.srs]));
+    updateWords((s) => ({
+      ...s,
+      words: s.words.map((w) => {
+        const srs = restore.get(w.id);
+        return srs ? { ...w, srs } : w;
+      }),
+    }));
+    return true;
+  }, [updateWords]);
+
+  /**
    * Records one attempt. `opts.mode` decides whether the response time is graded,
    * and `opts.ms` should be passed even for modes that ignore it — the study-time
    * statistic is derived from nothing else.
    */
   const gradeWord = useCallback(
     (id: string, correct: boolean, opts: ReviewOptions) => {
+      const before = state.words.find((w) => w.id === id);
+      if (before) pushUndo({ words: [{ id, srs: before.srs }] });
       updateWords((s) => ({
         ...s,
         words: s.words.map((w) => (w.id === id ? { ...w, srs: reviewWord(w.srs, correct, opts) } : w)),
       }));
     },
-    [updateWords]
+    [state.words, pushUndo, updateWords]
   );
 
   /** Records several attempts as one update — games grade a whole board at once. */
   const gradeWords = useCallback(
     (entries: GradeInput[]) => {
       if (entries.length === 0) return;
+      // One board is one undo step, so a game can be walked back as a whole.
+      const touched = new Set(entries.map((e) => e.id));
+      pushUndo({
+        words: state.words.filter((w) => touched.has(w.id)).map((w) => ({ id: w.id, srs: w.srs })),
+      });
       updateWords((s) => {
         const byId = new Map<string, GradeInput[]>();
         for (const e of entries) {
@@ -205,18 +279,25 @@ export function useAppState() {
         };
       });
     },
-    [updateWords]
+    [state.words, pushUndo, updateWords]
   );
+
+  const clearUndo = useCallback(() => {
+    undoStack.current = [];
+    setUndoDepth(0);
+  }, []);
 
   /** Wipes every word and study log, keeping the user's settings. */
   const deleteAllWords = useCallback(() => {
+    clearUndo();
     updateWords((s) => ({ ...s, words: [], legacyLog: [], migration: undefined }));
-  }, [updateWords]);
+  }, [clearUndo, updateWords]);
 
   /** Full factory reset, settings included. */
   const resetAllData = useCallback(() => {
+    clearUndo();
     setState(buildInitialState());
-  }, []);
+  }, [clearUndo]);
 
   return {
     state,
@@ -225,10 +306,13 @@ export function useAppState() {
     addWord,
     addWordsBulk,
     updateWord,
+    restWord,
     deleteWord,
     deleteWords,
     gradeWord,
     gradeWords,
+    undoLastGrade,
+    canUndo: undoDepth > 0,
     toggleDarkMode,
     updateSettings,
     replaceState,

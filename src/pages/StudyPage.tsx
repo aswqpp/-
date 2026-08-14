@@ -7,9 +7,10 @@ import { difficultyVerdict, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
-import { getDueWords } from '../lib/srs';
-import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
+import { isLeech, LEECH_REST_DAYS, predictedRetention, weightedSample } from '../lib/memory';
+import { hasModifier, isTypingTarget } from '../lib/keyboard';
 import { todayIso } from '../lib/srs';
+import { dueQueueFor, heldBackSummary } from '../lib/scheduling';
 import { RetentionBadge } from '../components/RetentionBadge';
 
 type Phase = 'setup' | 'active' | 'done';
@@ -41,12 +42,18 @@ export default function StudyPage({
   const [wrong, setWrong] = useState(0);
   /** Banner text for a handed-in session ("망각 위험군 집중 복습"), null for a normal one. */
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  /** Cards graded in this session, so 되돌리기 knows where to step back to. */
+  const [graded, setGraded] = useState<{ index: number; correct: boolean }[]>([]);
   /** When the current card was put on screen — the response time recorded for it. */
   const cardShownRef = useRef(Date.now());
 
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
-  // Most-faded first: a word 3 weeks past its due date matters more than one due today.
-  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords), todayIso(), app.model), [scopedWords, app.model]);
+  // Most-faded first, then trimmed to what today's caps still allow.
+  const due = useMemo(
+    () => dueQueueFor(scopedWords, words, app.state.settings, app.model),
+    [scopedWords, words, app.state.settings, app.model]
+  );
+  const dueWords = due.queue;
 
   function start(list: Word[], label: string | null = null) {
     if (list.length === 0) return;
@@ -56,6 +63,7 @@ export default function StudyPage({
     setFlipped(false);
     setCorrect(0);
     setWrong(0);
+    setGraded([]);
     setFocusLabel(label);
     setPhase('active');
   }
@@ -105,6 +113,7 @@ export default function StudyPage({
     });
     if (know) setCorrect((c) => c + 1);
     else setWrong((w) => w + 1);
+    setGraded((g) => [...g, { index, correct: know }]);
 
     const next = index + 1;
     if (next >= queue.length) {
@@ -115,6 +124,73 @@ export default function StudyPage({
       setFlipped(false);
     }
   }
+
+  /**
+   * Takes back the last answer — the card comes up again, face turned, and its SRS
+   * record goes back to what it was. One mis-tapped "안다" otherwise pushes a word
+   * weeks out with no way to say so.
+   */
+  function undoGrade() {
+    const last = graded[graded.length - 1];
+    if (!last || !app.undoLastGrade()) return;
+    setGraded((g) => g.slice(0, -1));
+    if (last.correct) setCorrect((c) => c - 1);
+    else setWrong((w) => w - 1);
+    setIndex(last.index);
+    setFlipped(true);
+    setPhase('active');
+    cardShownRef.current = Date.now();
+  }
+
+  /**
+   * Sets the current word aside without grading it: the schedule moves, the memory
+   * record does not. The card stays in this session's queue so the progress count
+   * keeps its meaning — it just will not come back for a week.
+   */
+  function restCurrent() {
+    const word = queue[index];
+    if (!word) return;
+    app.restWord(word.id, LEECH_REST_DAYS);
+    const next = index + 1;
+    if (next >= queue.length) {
+      setPhase('done');
+    } else {
+      cardShownRef.current = Date.now();
+      setIndex(next);
+      setFlipped(false);
+    }
+  }
+
+  /**
+   * Keyboard control on desktop: space flips, then ← / → grade, Z takes it back.
+   * Bound to the window rather than a focused element so it works without the user
+   * having to click the card first.
+   */
+  useEffect(() => {
+    if (phase !== 'active') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (hasModifier(e) || isTypingTarget(e.target)) return;
+      const key = e.key;
+      if (key === ' ' || key === 'Enter') {
+        e.preventDefault();
+        setFlipped((f) => !f);
+      } else if (flipped && (key === 'ArrowLeft' || key === '1')) {
+        e.preventDefault();
+        grade(false);
+      } else if (flipped && (key === 'ArrowRight' || key === '2')) {
+        e.preventDefault();
+        grade(true);
+      } else if (key === 'z' || key === 'Z') {
+        e.preventDefault();
+        undoGrade();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // No dependency array on purpose: the handler closes over the card index and the
+    // flip state, and rebinding one listener per render is cheaper than the bugs a
+    // stale closure causes here.
+  });
 
   if (phase === 'setup') {
     return (
@@ -130,6 +206,11 @@ export default function StudyPage({
             <Card>
               <p className="text-sm text-slate-500">오늘 복습할 단어</p>
               <p className="mt-1 text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">{dueWords.length}개</p>
+              {heldBackSummary(due) && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  하루 상한에 걸린 {heldBackSummary(due)}는 내일로 미뤄뒀어요. 설정 → 학습 설정에서 조절할 수 있어요.
+                </p>
+              )}
               <Button className="mt-3 w-full" onClick={() => start(dueWords)} disabled={dueWords.length === 0}>
                 <Icon name="cards" className="h-4 w-4" /> 오늘의 복습 시작
               </Button>
@@ -174,7 +255,7 @@ export default function StudyPage({
           <Icon name="check" className="h-8 w-8" />
         </div>
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">학습 완료!</h2>
-        <p className="text-sm text-slate-500">{queue.length}개 단어를 학습했어요. 정답률 {acc}%</p>
+        <p className="text-sm text-slate-500">{total}개 단어를 학습했어요. 정답률 {acc}%</p>
         <div className="flex gap-3 text-sm">
           <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
             안다 {correct}
@@ -191,6 +272,12 @@ export default function StudyPage({
             퀴즈로 확인
           </Button>
         </div>
+        {graded.length > 0 && (
+          <button onClick={undoGrade} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <Icon name="refresh" className="mr-1 inline h-3.5 w-3.5" />
+            마지막 채점 되돌리기
+          </button>
+        )}
       </div>
     );
   }
@@ -207,9 +294,19 @@ export default function StudyPage({
         <button onClick={() => setPhase('setup')} className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
           <Icon name="chevron-left" className="h-4 w-4" /> 종료
         </button>
-        <p className="text-sm font-semibold text-slate-500">
-          {index + 1} / {queue.length} 완료
-        </p>
+        <div className="flex items-center gap-3">
+          {graded.length > 0 && (
+            <button
+              onClick={undoGrade}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <Icon name="refresh" className="h-3.5 w-3.5" /> 되돌리기
+            </button>
+          )}
+          <p className="text-sm font-semibold text-slate-500">
+            {index + 1} / {queue.length} 완료
+          </p>
+        </div>
       </div>
       <ProgressBar value={index} max={queue.length} />
 
@@ -230,6 +327,24 @@ export default function StudyPage({
         />
         <RetentionBadge value={predictedRetention(word, todayIso(), app.model)} />
       </div>
+
+      {isLeech(word) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+          <span className="font-bold">누수 단어</span> — 외웠다가 다시 무너진 게 {word.srs.lapses}번이에요. 더 자주
+          묻는 것보다, 이 단어를 다르게 적어두는 편이 잘 들어요.
+          <span className="mt-1.5 flex gap-2">
+            <button
+              onClick={restCurrent}
+              className="rounded-full border border-amber-300 px-2.5 py-1 font-semibold hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/50"
+            >
+              {LEECH_REST_DAYS}일 쉬어가기
+            </button>
+            <span className="self-center text-amber-600/80 dark:text-amber-400/80">
+              (기억 상태는 그대로 두고 다음 복습만 미뤄요)
+            </span>
+          </span>
+        </div>
+      )}
 
       <div className="flip-scene mt-1">
         <div
@@ -296,6 +411,11 @@ export default function StudyPage({
       ) : (
         <p className="mt-2 text-center text-xs text-slate-400">카드를 탭해서 뜻을 확인하세요</p>
       )}
+
+      {/* Pointer-based devices only: a phone has no keys to press. */}
+      <p className="hidden text-center text-[11px] text-slate-300 dark:text-slate-600 sm:block">
+        스페이스 뒤집기 · ← 모른다 · → 안다 · Z 되돌리기
+      </p>
     </div>
   );
 }

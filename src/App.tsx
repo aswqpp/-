@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { PendingReview, Screen } from './types';
 import { useAppState } from './hooks/useAppState';
 import { Icon, type IconName } from './components/Icon';
-import { getDueWords } from './lib/srs';
+import { dueQueueFor } from './lib/scheduling';
 import HomePage from './pages/HomePage';
 import WordsPage from './pages/WordsPage';
 import LearnPage, { type LearnTab } from './pages/LearnPage';
@@ -28,7 +28,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [learnTab, setLearnTab] = useState<LearnTab>('flashcard');
 
-  const dueCount = useMemo(() => getDueWords(app.state.words).length, [app.state.words]);
+  // What is actually offered today: due words minus whatever the daily caps hold back.
+  const dueQueue = useMemo(
+    () => dueQueueFor(app.state.words, app.state.words, app.state.settings, app.model),
+    [app.state.words, app.state.settings, app.model]
+  );
+  const dueCount = dueQueue.queue.length;
 
   /**
    * Opens a session over exactly these words. Whether that is a flashcard run or a
@@ -111,7 +116,14 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-4 sm:pb-8">
         {screen === 'home' && (
-          <HomePage app={app} dueCount={dueCount} onNavigate={navigate} onStartReview={startFocusedReview} />
+          <HomePage
+            app={app}
+            dueCount={dueCount}
+            heldBack={dueQueue.held}
+            onNavigate={navigate}
+            onStartReview={startFocusedReview}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         )}
         {screen === 'words' && <WordsPage app={app} />}
         {screen === 'study' && (

@@ -17,6 +17,7 @@ import {
   difficultyVerdict,
   wrongRateDisplay,
 } from '../lib/difficulty';
+import { isLeech } from '../lib/memory';
 import { Icon } from '../components/Icon';
 import { WordFormModal, type WordFormData } from '../components/WordFormModal';
 import { BulkImportModal } from '../components/BulkImportModal';
@@ -448,6 +449,7 @@ export default function WordsPage({ app }: { app: UseAppState }) {
                         <Badge tone="indigo">{w.category || UNCATEGORIZED}</Badge>
                         <Badge>{w.examType}</Badge>
                         {isDue(w) && <Badge tone="rose">복습 필요</Badge>}
+                        {isLeech(w) && <Badge tone="amber">누수 {w.srs.lapses}회</Badge>}
                       </div>
                     </div>
                     {/* Row actions step aside in select mode: a tap there is meant for the selection. */}

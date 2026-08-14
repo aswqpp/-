@@ -5,6 +5,9 @@ const srs = await jiti.import('/home/user/-/src/lib/srs.ts');
 const storage = await jiti.import('/home/user/-/src/lib/storage.ts');
 const stats = await jiti.import('/home/user/-/src/lib/stats.ts');
 const backup = await jiti.import('/home/user/-/src/lib/backup.ts');
+const sched = await jiti.import('/home/user/-/src/lib/scheduling.ts');
+const memory = await jiti.import('/home/user/-/src/lib/memory.ts');
+const persistence = await jiti.import('/home/user/-/src/lib/persistence.ts');
 
 let failures = 0;
 function check(name, actual, expected) {
@@ -328,6 +331,104 @@ check('legacy attempts reported separately', summary.legacyAttempts, 15);
 check('mode split excludes the pre-upgrade era', stats.accuracyByMode(accWords), [
   { key: 'mc', correct: 1, wrong: 0, attempts: 1, pct: 100 },
 ]);
+
+/* ---- daily caps ---- */
+const capToday = srs.todayIso();
+const capWord = (id, { attempts = 0, todayAttempts = 0, pre = false } = {}) => {
+  const history = [];
+  for (let i = 0; i < attempts; i++) {
+    history.push({ t: new Date(Date.now() - (i + 1) * 86400000).toISOString(), ok: true, mode: 'mc', dir: 'w2m', q: 5 });
+  }
+  for (let i = 0; i < todayAttempts; i++) {
+    history.push({ t: new Date().toISOString(), ok: true, mode: 'mc', dir: 'w2m', q: 5 });
+  }
+  return {
+    id,
+    word: id,
+    meaning: id,
+    srs: {
+      ...srs.createInitialSrs(),
+      correctCount: attempts + todayAttempts,
+      wrongCount: 0,
+      history,
+      ...(pre ? { preCount: { ok: 3, ng: 1, until: null } } : {}),
+    },
+  };
+};
+
+const unseen = [capWord('n1'), capWord('n2'), capWord('n3')];
+const seen = [capWord('r1', { attempts: 2 }), capWord('r2', { attempts: 2 }), capWord('r3', { attempts: 2 })];
+const pool = [...unseen, ...seen];
+
+check(
+  'caps trim new and review separately',
+  (() => {
+    const q = sched.applyDailyCaps(pool, pool, { review: 2, new: 1 }, capToday);
+    return { queue: q.queue.map((w) => w.id), newHeld: q.newHeld, reviewHeld: q.reviewHeld };
+  })(),
+  { queue: ['n1', 'r1', 'r2'], newHeld: 2, reviewHeld: 1 }
+);
+
+check(
+  'cap 0 means unlimited',
+  sched.applyDailyCaps(pool, pool, { review: 0, new: 0 }, capToday).queue.length,
+  6
+);
+
+// Two words already answered today: one met for the first time, one an old word.
+const spent = [capWord('done-new', { todayAttempts: 2 }), capWord('done-old', { attempts: 1, todayAttempts: 1 })];
+check('today’s work counts words, not attempts', sched.countStudiedToday(spent, capToday), {
+  introduced: 1,
+  reviews: 1,
+  total: 2,
+});
+
+check(
+  'the allowance is what today has left',
+  (() => {
+    const all = [...pool, ...spent];
+    const q = sched.applyDailyCaps(pool, all, { review: 2, new: 2 }, capToday);
+    return q.queue.map((w) => w.id);
+  })(),
+  ['n1', 'r1'] // 1 of 2 new left, 1 of 2 reviews left
+);
+
+check(
+  'a migrated word is a review, never a new word',
+  sched.countStudiedToday([capWord('m1', { todayAttempts: 1, pre: true })], capToday),
+  { introduced: 0, reviews: 1, total: 1 }
+);
+
+check('held-back summary', sched.heldBackSummary({ newHeld: 2, reviewHeld: 3, held: 5 }), '새 단어 2개 · 복습 3개');
+check('nothing held, nothing said', sched.heldBackSummary({ newHeld: 0, reviewHeld: 0, held: 0 }), null);
+
+/* ---- leeches ---- */
+const leechy = { ...capWord('l1'), srs: { ...srs.createInitialSrs(), lapses: memory.LEECH_LAPSES } };
+const sturdy = { ...capWord('s1'), srs: { ...srs.createInitialSrs(), lapses: memory.LEECH_LAPSES - 1 } };
+check('leech at the threshold', memory.isLeech(leechy), true);
+check('not a leech below it', memory.isLeech(sturdy), false);
+
+/* ---- backup reminder ---- */
+const remToday = '2026-08-14';
+check('quiet with a small deck', persistence.backupReminder(5, null, null, remToday).show, false);
+check('nags when never backed up', persistence.backupReminder(50, null, null, remToday).show, true);
+check('quiet right after a backup', persistence.backupReminder(50, '2026-08-10', null, remToday).show, false);
+check('nags again after 30 days', persistence.backupReminder(50, '2026-07-01', null, remToday).show, true);
+check('snooze wins', persistence.backupReminder(50, '2026-07-01', '2026-08-20', remToday).show, false);
+check('expired snooze does not', persistence.backupReminder(50, '2026-07-01', '2026-08-13', remToday).show, true);
+
+/* ---- settings normalization ---- */
+check(
+  'cap settings survive a round trip, bad values fall back',
+  (() => {
+    const s = storage.normalizeState(
+      { version: 4, words: [], log: [], settings: { dailyReviewCap: 7, dailyNewCap: -3, lastBackupAt: 'nope' } },
+      4
+    ).settings;
+    return { review: s.dailyReviewCap, fresh: s.dailyNewCap, backup: s.lastBackupAt };
+  })(),
+  { review: 7, fresh: 0, backup: null }
+);
 
 /* ---- timezone walk (regression guard for the frozen stats page) ---- */
 const today = srs.todayIso();

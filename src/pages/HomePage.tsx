@@ -7,19 +7,26 @@ import { computeStreak, getTodayEntry, weakWords } from '../lib/stats';
 import { atRiskWords } from '../lib/memory';
 import { GoalRing } from '../components/GoalRing';
 import { Enso } from '../components/Brand';
+import { backupReminder, BACKUP_SNOOZE_DAYS } from '../lib/persistence';
+import { addDays, todayIso } from '../lib/srs';
 
 const WEAK_WORDS_TOP_N = 5;
 
 export default function HomePage({
   app,
   dueCount,
+  heldBack,
   onNavigate,
   onStartReview,
+  onOpenSettings,
 }: {
   app: UseAppState;
   dueCount: number;
+  /** Due words today's caps pushed to tomorrow. */
+  heldBack: number;
   onNavigate: (s: Screen) => void;
   onStartReview: (review: PendingReview) => void;
+  onOpenSettings: () => void;
 }) {
   const { words, log } = app.state;
   const { focusedReviewMode } = app.state.settings;
@@ -38,6 +45,9 @@ export default function HomePage({
     [words, app.model, atRiskThreshold]
   );
 
+  const { lastBackupAt, backupSnoozeUntil } = app.state.settings;
+  const reminder = backupReminder(words.length, lastBackupAt, backupSnoozeUntil);
+
   return (
     <div className="flex flex-col gap-4">
       {/* The ensō sits behind the hero as a watermark — present, not shouting. */}
@@ -51,6 +61,11 @@ export default function HomePage({
           <div>
             <p className="text-xs text-slate-400">오늘의 복습</p>
             <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">복습할 단어 {dueCount}개</p>
+            {heldBack > 0 && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                하루 상한에 맞춰 {heldBack}개는 내일로 미뤄뒀어요
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
             <Icon name="flame" className="h-4 w-4" />
@@ -118,6 +133,34 @@ export default function HomePage({
           </span>
           <Icon name="chevron-right" className="h-4 w-4 shrink-0 text-rose-400" />
         </button>
+      )}
+
+      {reminder.show && (
+        <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+            <Icon name="note" className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">데이터를 파일로 백업해두세요</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+              {reminder.daysSince === null
+                ? `단어 ${words.length}개가 이 브라우저에만 있어요.`
+                : `마지막 백업이 ${reminder.daysSince}일 전이에요.`}{' '}
+              브라우저 데이터를 지우거나 기기를 바꾸면 사라져요.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button className="px-3 py-1.5 text-xs" onClick={onOpenSettings}>
+                백업하러 가기
+              </Button>
+              <button
+                onClick={() => app.updateSettings({ backupSnoozeUntil: addDays(todayIso(), BACKUP_SNOOZE_DAYS) })}
+                className="px-2 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Card>

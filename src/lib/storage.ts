@@ -11,6 +11,7 @@ import type {
   Word,
 } from '../types';
 import { createInitialSrs, HISTORY_LIMIT, migrateState, STATE_VERSION, withDerivedLog } from './srs';
+import { DEFAULT_NEW_CAP, DEFAULT_REVIEW_CAP } from './scheduling';
 
 const STORAGE_KEY = 'voca-app-state-v1';
 
@@ -143,6 +144,17 @@ function normalizeLog(raw: unknown): StudyLogEntry[] {
   return raw.map(normalizeLogEntry).filter((l): l is StudyLogEntry => l !== null);
 }
 
+/** A stored 'YYYY-MM-DD', or null for anything else. */
+function localDate(raw: unknown): string | null {
+  return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
+/** A daily cap: a whole number of words, or 0 for no limit. */
+function capValue(raw: unknown, fallback: number): number {
+  const n = Math.round(num(raw, fallback));
+  return Math.min(9999, Math.max(0, n));
+}
+
 function normalizeSettings(raw: unknown): AppSettings {
   const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   const goal = Math.round(num(r.dailyGoal, DEFAULT_DAILY_GOAL));
@@ -154,6 +166,10 @@ function normalizeSettings(raw: unknown): AppSettings {
     autoSpeakExample: r.autoSpeakExample === true,
     atRiskThreshold: Math.min(0.95, Math.max(0, num(r.atRiskThreshold, DEFAULT_AT_RISK_THRESHOLD))),
     focusedReviewMode: r.focusedReviewMode === 'quiz' ? 'quiz' : 'flashcard',
+    dailyReviewCap: capValue(r.dailyReviewCap, DEFAULT_REVIEW_CAP),
+    dailyNewCap: capValue(r.dailyNewCap, DEFAULT_NEW_CAP),
+    lastBackupAt: localDate(r.lastBackupAt),
+    backupSnoozeUntil: localDate(r.backupSnoozeUntil),
   };
 }
 

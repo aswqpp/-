@@ -18,7 +18,7 @@ import {
   formatDuration,
   retentionStats,
 } from '../lib/stats';
-import { memoryStageDistribution } from '../lib/memory';
+import { LEECH_LAPSES, leechWords, memoryStageDistribution } from '../lib/memory';
 import { StudyVolumeChart } from '../components/StudyVolumeChart';
 import { LearningCurveChart } from '../components/LearningCurveChart';
 import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
@@ -64,6 +64,7 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
     [words, app.model, app.state.settings.atRiskThreshold]
   );
   const retention = useMemo(() => retentionStats(words), [words]);
+  const leeches = useMemo(() => leechWords(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
   const [formulaOpen, setFormulaOpen] = useState(false);
 
@@ -187,6 +188,11 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
           />
           <Metric label="복습 붕괴" value={`${retention.lapses}회`} sub="자리잡은 뒤 다시 틀린 횟수" />
           <Metric label="붕괴한 단어" value={`${retention.lapsedWords}개`} />
+          <Metric
+            label="누수 단어"
+            value={`${leeches.length}개`}
+            sub={`${LEECH_LAPSES}번 이상 무너진 단어`}
+          />
         </div>
         {migration && (
           <p className="mt-2 text-[11px] text-slate-400">

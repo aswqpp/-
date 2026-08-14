@@ -126,6 +126,14 @@ export interface AppSettings {
    * session or a quiz over those same words.
    */
   focusedReviewMode: FocusedReviewMode;
+  /** Most words with a history to put up for review in one day. 0 = 무제한. */
+  dailyReviewCap: number;
+  /** Most never-seen words to introduce in one day. 0 = 무제한. */
+  dailyNewCap: number;
+  /** Local date of the last backup export, or null if there has never been one. */
+  lastBackupAt: string | null;
+  /** The backup reminder stays quiet until this local date. */
+  backupSnoozeUntil: string | null;
 }
 
 /** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */

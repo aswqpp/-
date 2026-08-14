@@ -132,6 +132,29 @@ export function atRiskDescription(threshold: number): string {
   return `마지막 복습 이후 시간이 지나 예상 기억률이 ${Math.round(threshold * 100)}% 아래로 떨어진 단어`;
 }
 
+/**
+ * Lapses before a word is called a 누수 단어 ("leech").
+ *
+ * A lapse is a *mature* card falling over, so these are words that had already been
+ * learned and were lost again — five of those means the card itself is the problem,
+ * not the schedule. Drilling it harder mostly buys more failures; what helps is
+ * rewriting it (a mnemonic, a narrower meaning, splitting a homonym) or setting it
+ * aside for a while. Anki uses 8 against its own lapse definition; ours only counts
+ * post-upgrade collapses, so the bar sits lower.
+ */
+export const LEECH_LAPSES = 5;
+
+export function isLeech(word: Word): boolean {
+  return (word.srs.lapses ?? 0) >= LEECH_LAPSES;
+}
+
+export function leechWords(words: Word[]): Word[] {
+  return words.filter(isLeech).sort((a, b) => (b.srs.lapses ?? 0) - (a.srs.lapses ?? 0));
+}
+
+/** How long 쉬어가기 pushes a word out. Long enough to break the failure loop. */
+export const LEECH_REST_DAYS = 7;
+
 /** A word counts as 암기 완료 once it has a solid streak and a 3-week-plus interval. */
 export function isMastered(word: Word): boolean {
   return word.srs.repetitions >= 3 && word.srs.interval >= 21;

@@ -1,5 +1,6 @@
 import type { AppState } from '../types';
 import { DEFAULT_AT_RISK_THRESHOLD, DEFAULT_DAILY_GOAL } from '../lib/storage';
+import { DEFAULT_NEW_CAP, DEFAULT_REVIEW_CAP } from '../lib/scheduling';
 
 function genId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -25,6 +26,10 @@ export function buildInitialState(): AppState {
       autoSpeakExample: false,
       atRiskThreshold: DEFAULT_AT_RISK_THRESHOLD,
       focusedReviewMode: 'flashcard',
+      dailyReviewCap: DEFAULT_REVIEW_CAP,
+      dailyNewCap: DEFAULT_NEW_CAP,
+      lastBackupAt: null,
+      backupSnoozeUntil: null,
     },
   };
 }

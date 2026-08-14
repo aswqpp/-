@@ -7,8 +7,10 @@ import { difficultyVerdict, wrongRateDisplay } from '../lib/difficulty';
 import { ScopePicker } from '../components/ScopePicker';
 import { applyScope, EMPTY_SCOPE, type Scope } from '../lib/scope';
 import { useTts } from '../hooks/useTts';
-import { getDueWords, todayIso } from '../lib/srs';
-import { orderByUrgency, predictedRetention, weightedSample } from '../lib/memory';
+import { todayIso } from '../lib/srs';
+import { isLeech, predictedRetention, weightedSample } from '../lib/memory';
+import { hasModifier, isTypingTarget } from '../lib/keyboard';
+import { dueQueueFor, heldBackSummary } from '../lib/scheduling';
 import { RetentionBadge } from '../components/RetentionBadge';
 import {
   buildQuiz,
@@ -79,7 +81,11 @@ export default function QuizPage({
 
   const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
   const scopedWords = useMemo(() => applyScope(words, scope), [words, scope]);
-  const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords), todayIso(), app.model), [scopedWords, app.model]);
+  const due = useMemo(
+    () => dueQueueFor(scopedWords, words, app.state.settings, app.model),
+    [scopedWords, words, app.state.settings, app.model]
+  );
+  const dueWords = due.queue;
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice', 'listening']);
@@ -96,6 +102,8 @@ export default function QuizPage({
   const [customCount, setCustomCount] = useState('');
   /** Banner text for a handed-in session ("망각 위험군 집중 복습"), null for a normal one. */
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  /** Questions graded in this session, so 되돌리기 knows where to step back to. */
+  const [graded, setGraded] = useState<{ index: number; correct: boolean }[]>([]);
   /** When the current question went on screen — graded against the mode's time limit. */
   const questionShownRef = useRef(Date.now());
 
@@ -122,6 +130,7 @@ export default function QuizPage({
     setAnswered(false);
     setSelectedOption(null);
     setSpellingInput('');
+    setGraded([]);
     setFocusLabel(label);
     setPhase('active');
   }
@@ -192,6 +201,26 @@ export default function QuizPage({
     });
     if (isCorrect) setCorrect((c) => c + 1);
     else setWrong((w) => w + 1);
+    setGraded((g) => [...g, { index, correct: isCorrect }]);
+  }
+
+  /**
+   * Takes back the last answer and puts that question up again, unanswered, with the
+   * word's SRS record restored. Covers the mis-tap, and the reflex of answering
+   * before the audio has finished playing.
+   */
+  function undoGrade() {
+    const last = graded[graded.length - 1];
+    if (!last || !app.undoLastGrade()) return;
+    setGraded((g) => g.slice(0, -1));
+    if (last.correct) setCorrect((c) => c - 1);
+    else setWrong((w) => w - 1);
+    setIndex(last.index);
+    setAnswered(false);
+    setSelectedOption(null);
+    setSpellingInput('');
+    setPhase('active');
+    questionShownRef.current = Date.now();
   }
 
   function nextQuestion() {
@@ -218,6 +247,34 @@ export default function QuizPage({
     setSelectedOption(opt);
     submitAnswer(opt === correctAnswerFor(current));
   }
+
+  /**
+   * Keyboard control on desktop: number keys pick an option, Enter moves on, Z takes
+   * the answer back. Every branch bails out while the spelling box has focus — those
+   * are all characters someone might be typing into it.
+   */
+  useEffect(() => {
+    if (phase !== 'active' || !current) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (hasModifier(e) || isTypingTarget(e.target)) return;
+      if (e.key === 'Enter' && answered) {
+        e.preventDefault();
+        nextQuestion();
+      } else if ((e.key === 'z' || e.key === 'Z') && answered) {
+        e.preventDefault();
+        undoGrade();
+      } else if (!answered && current.options && /^[1-9]$/.test(e.key)) {
+        const opt = current.options[Number(e.key) - 1];
+        if (opt) {
+          e.preventDefault();
+          chooseOption(opt);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // Rebound every render so the handler always sees the current question.
+  });
 
   if (phase === 'setup') {
     return (
@@ -320,6 +377,11 @@ export default function QuizPage({
 
             <Card>
               <p className="text-sm text-slate-500">복습 예정 단어로 퀴즈 ({dueWords.length}개)</p>
+              {heldBackSummary(due) && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  하루 상한에 걸린 {heldBackSummary(due)}는 내일로 미뤄뒀어요.
+                </p>
+              )}
               <Button className="mt-3 w-full" onClick={() => start(dueWords)} disabled={dueWords.length === 0 || selectedTypes.length === 0}>
                 <Icon name="quiz" className="h-4 w-4" /> {plannedCount(dueWords.length)}문제 시작
               </Button>
@@ -357,6 +419,12 @@ export default function QuizPage({
             게임 하러 가기
           </Button>
         </div>
+        {graded.length > 0 && (
+          <button onClick={undoGrade} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <Icon name="refresh" className="mr-1 inline h-3.5 w-3.5" />
+            마지막 문제 되돌리기
+          </button>
+        )}
       </div>
     );
   }
@@ -393,6 +461,7 @@ export default function QuizPage({
               confidence={liveVerdict.confidence}
               halfLifeDays={liveVerdict.halfLifeDays}
             />
+            {isLeech(liveWord) && <Badge tone="amber">누수</Badge>}
             <RetentionBadge value={predictedRetention(liveWord, todayIso(), app.model)} />
             <FavoriteStarButton active={liveWord.favorite} onToggle={() => app.updateWord(liveWord.id, { favorite: !liveWord.favorite })} className="h-4 w-4" />
           </div>
@@ -448,8 +517,12 @@ export default function QuizPage({
                     key={opt}
                     onClick={() => chooseOption(opt)}
                     disabled={answered}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm font-medium text-slate-700 transition dark:text-slate-200 ${style}`}
+                    className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-sm font-medium text-slate-700 transition dark:text-slate-200 ${style}`}
                   >
+                    {/* The number is the keyboard shortcut; on touch it just reads as an index. */}
+                    <span className="hidden h-5 w-5 shrink-0 place-items-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-400 dark:bg-slate-800 sm:grid">
+                      {current.options!.indexOf(opt) + 1}
+                    </span>
                     {opt}
                   </button>
                 );
@@ -493,9 +566,19 @@ export default function QuizPage({
             <Button className="mt-1 w-full" onClick={nextQuestion}>
               {index + 1 >= questions.length ? '결과 보기' : '다음 문제'}
             </Button>
+            <button
+              onClick={undoGrade}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <Icon name="refresh" className="h-3.5 w-3.5" /> 되돌리고 다시 풀기
+            </button>
           </div>
         )}
       </Card>
+
+      <p className="hidden text-center text-[11px] text-slate-300 dark:text-slate-600 sm:block">
+        1~9 선택지 고르기 · Enter 다음 문제 · Z 되돌리기
+      </p>
     </div>
   );
 }

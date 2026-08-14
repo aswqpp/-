@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { AppState } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Badge } from './ui';
@@ -6,6 +6,14 @@ import { Icon } from './Icon';
 import { downloadBackup, parseBackup } from '../lib/backup';
 import { Select } from './Select';
 import { atRiskDescription } from '../lib/memory';
+import { todayIso } from '../lib/srs';
+import {
+  formatBytes,
+  readStorageStatus,
+  requestPersistence,
+  UNKNOWN_STORAGE,
+  type StorageStatus,
+} from '../lib/persistence';
 
 type Tab = 'study' | 'general';
 
@@ -39,7 +47,18 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
   const [notice, setNotice] = useState<Notice>(null);
   const [pending, setPending] = useState<{ state: AppState; exportedAt: string | null } | null>(null);
   const [tab, setTab] = useState<Tab>('study');
+  const [storage, setStorage] = useState<StorageStatus>(UNKNOWN_STORAGE);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Read once when the sheet opens: it is a quick async call, and nothing outside
+  // this sheet shows it.
+  useEffect(() => {
+    let live = true;
+    readStorageStatus().then((s) => live && setStorage(s));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   function commitGoal(raw: string) {
     const parsed = Number.parseInt(raw, 10);
@@ -51,10 +70,25 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
   function handleExport() {
     try {
       const name = downloadBackup(app.state);
+      // Also clears any snooze: the reminder's whole job is done.
+      app.updateSettings({ lastBackupAt: todayIso(), backupSnoozeUntil: null });
       setNotice({ tone: 'ok', text: `${name} 파일로 내보냈어요. 안전한 곳에 보관해주세요.` });
     } catch {
       setNotice({ tone: 'error', text: '내보내기에 실패했어요.' });
     }
+  }
+
+  async function handlePersist() {
+    const granted = await requestPersistence();
+    setStorage(await readStorageStatus());
+    setNotice(
+      granted
+        ? { tone: 'ok', text: '이 브라우저가 저장 공간을 자동으로 지우지 않도록 설정했어요.' }
+        : {
+            tone: 'error',
+            text: '브라우저가 요청을 거절했어요. 앱을 홈 화면에 설치하거나 며칠 더 사용하면 승인되는 경우가 많아요.',
+          }
+    );
   }
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
@@ -151,6 +185,26 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
               <p className="mt-1.5 text-[11px] text-slate-400">홈 화면에 오늘 진행률로 표시돼요.</p>
             </Section>
 
+            <Section title="하루 학습량 상한" bordered>
+              <div className="flex gap-2">
+                <CapInput
+                  label="복습"
+                  value={settings.dailyReviewCap}
+                  onCommit={(n) => app.updateSettings({ dailyReviewCap: n })}
+                />
+                <CapInput
+                  label="새 단어"
+                  value={settings.dailyNewCap}
+                  onCommit={(n) => app.updateSettings({ dailyNewCap: n })}
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                하루에 내보낼 최대 단어 수예요. 0을 넣으면 제한 없이 전부 내보내요. 상한을 넘긴 단어는 사라지지 않고
+                복습 예정으로 남아 다음 날 급한 순서대로 다시 나와요 — 한 번에 수백 개를 가져와도 하루치가 감당할 수
+                있는 양으로 유지됩니다.
+              </p>
+            </Section>
+
             <Section title="망각 위험군" bordered>
               <Select
                 ariaLabel="망각 위험군 기준"
@@ -229,7 +283,37 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
 
               <p className="mt-2 text-[11px] text-slate-400">
                 현재 단어 {words.length}개 · 학습 기록 {app.state.log.length}일치
+                {storage.usage != null && ` · 저장 공간 ${formatBytes(storage.usage)}`}
+                {storage.usage != null && storage.quota != null && ` / ${formatBytes(storage.quota)}`}
               </p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                마지막 백업:{' '}
+                {settings.lastBackupAt ? (
+                  <span className="font-semibold text-slate-500 dark:text-slate-300">{settings.lastBackupAt}</span>
+                ) : (
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">아직 없음</span>
+                )}
+              </p>
+
+              {storage.persisted !== null && (
+                <div className="mt-3 flex items-start justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-800">
+                  <span className="min-w-0">
+                    <span className="block text-sm text-slate-600 dark:text-slate-300">
+                      자동 삭제 방지 {storage.persisted ? '· 켜짐' : '· 꺼짐'}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">
+                      {storage.persisted
+                        ? '브라우저가 저장 공간이 부족해도 이 앱의 데이터를 먼저 지우지 않아요.'
+                        : '브라우저는 오래 안 쓴 사이트의 저장 공간을 지울 수 있어요. 켜두면 그 대상에서 빠집니다.'}
+                    </span>
+                  </span>
+                  {!storage.persisted && (
+                    <Button variant="secondary" className="shrink-0 px-3 py-1.5 text-xs" onClick={handlePersist}>
+                      켜기
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {pending && (
                 <div className="animate-pop-in mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
@@ -305,6 +389,46 @@ function Section({
       </p>
       {children}
     </section>
+  );
+}
+
+/** A daily cap field. Commits on blur/Enter so half-typed numbers never take effect. */
+function CapInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  onCommit: (next: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  function commit(raw: string) {
+    const parsed = Number.parseInt(raw, 10);
+    const next = Number.isFinite(parsed) ? Math.min(9999, Math.max(0, parsed)) : value;
+    setDraft(String(next));
+    onCommit(next);
+  }
+
+  return (
+    <label className="flex flex-1 flex-col gap-1">
+      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min={0}
+          max={9999}
+          inputMode="numeric"
+          className="input w-20"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && commit((e.target as HTMLInputElement).value)}
+        />
+        <span className="text-xs text-slate-400">{Number(draft) === 0 ? '무제한' : '개 / 일'}</span>
+      </span>
+    </label>
   );
 }
 
