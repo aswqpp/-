@@ -97,6 +97,15 @@ export interface StudyLogEntry {
   studySeconds: number;
 }
 
+/** How a focused review (망각 위험군 알림, 취약 단어) opens. */
+export type FocusedReviewMode = 'flashcard' | 'quiz';
+
+/** A session handed to 학습 from elsewhere: exactly these words, under this banner. */
+export interface PendingReview {
+  ids: string[];
+  label: string;
+}
+
 export interface AppSettings {
   darkMode: boolean;
   flashcardFrontIsWord: boolean;
@@ -112,6 +121,11 @@ export interface AppSettings {
    * with it, for learners who would rather not be nagged.
    */
   atRiskThreshold: number;
+  /**
+   * Whether the home screen's 망각 위험군 / 취약 단어 buttons start a flashcard
+   * session or a quiz over those same words.
+   */
+  focusedReviewMode: FocusedReviewMode;
 }
 
 /** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */

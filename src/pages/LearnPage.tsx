@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Screen } from '../types';
+import type { PendingReview, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Icon, type IconName } from '../components/Icon';
 import StudyPage from './StudyPage';
@@ -24,14 +24,14 @@ export default function LearnPage({
   tab,
   onTabChange,
   onNavigate,
-  pendingWordIds,
+  pending,
   onConsumePending,
 }: {
   app: UseAppState;
   tab: LearnTab;
   onTabChange: (t: LearnTab) => void;
   onNavigate: (s: Screen) => void;
-  pendingWordIds?: string[] | null;
+  pending?: PendingReview | null;
   onConsumePending?: () => void;
 }) {
   const [sessionActive, setSessionActive] = useState(false);
@@ -66,11 +66,17 @@ export default function LearnPage({
           app={app}
           onOpenQuiz={() => onTabChange('quiz')}
           onSessionActiveChange={setSessionActive}
-          pendingWordIds={pendingWordIds}
+          pending={pending}
           onConsumePending={onConsumePending}
         />
       ) : (
-        <QuizPage app={app} onNavigate={onNavigate} onSessionActiveChange={setSessionActive} />
+        <QuizPage
+          app={app}
+          onNavigate={onNavigate}
+          onSessionActiveChange={setSessionActive}
+          pending={pending}
+          onConsumePending={onConsumePending}
+        />
       )}
     </div>
   );

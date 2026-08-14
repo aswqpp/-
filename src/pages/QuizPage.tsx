@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { QuizType, ReviewDirection, ReviewMode, Screen } from '../types';
+import type { PendingReview, QuizType, ReviewDirection, ReviewMode, Screen, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, Badge, DifficultyBadge, FavoriteStarButton } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -63,11 +63,16 @@ export default function QuizPage({
   app,
   onNavigate,
   onSessionActiveChange,
+  pending,
+  onConsumePending,
 }: {
   app: UseAppState;
   onNavigate: (s: Screen) => void;
   /** Lets the parent hide its tab strip while a session is in progress. */
   onSessionActiveChange?: (active: boolean) => void;
+  /** A word set handed in from the home screen — quizzed straight away, no setup. */
+  pending?: PendingReview | null;
+  onConsumePending?: () => void;
 }) {
   const { words } = app.state;
   const { speak, supported } = useTts();
@@ -89,6 +94,8 @@ export default function QuizPage({
   const [mcOptionCount, setMcOptionCount] = useState(4);
   const [questionCount, setQuestionCount] = useState<number | null>(10);
   const [customCount, setCustomCount] = useState('');
+  /** Banner text for a handed-in session ("망각 위험군 집중 복습"), null for a normal one. */
+  const [focusLabel, setFocusLabel] = useState<string | null>(null);
   /** When the current question went on screen — graded against the mode's time limit. */
   const questionShownRef = useRef(Date.now());
 
@@ -105,21 +112,49 @@ export default function QuizPage({
     return questionCount === null ? poolSize : Math.min(questionCount, poolSize);
   }
 
-  function start(pool: typeof words) {
-    if (pool.length === 0 || selectedTypes.length === 0) return;
+  /** Puts a ready-made question list on screen. `pool` is where distractors come from. */
+  function begin(list: Word[], pool: Word[], types: QuizType[], label: string | null) {
     questionShownRef.current = Date.now();
-    // Weighted rather than uniform: words that have gone longest without a review
-    // are the ones worth asking about.
-    const list = weightedSample(pool, plannedCount(pool.length), todayIso(), app.model);
-    setQuestions(buildQuiz(list, scopedWords, selectedTypes, { direction: mcDirection, optionCount: mcOptionCount }));
+    setQuestions(buildQuiz(list, pool, types, { direction: mcDirection, optionCount: mcOptionCount }));
     setIndex(0);
     setCorrect(0);
     setWrong(0);
     setAnswered(false);
     setSelectedOption(null);
     setSpellingInput('');
+    setFocusLabel(label);
     setPhase('active');
   }
+
+  function backToSetup() {
+    setFocusLabel(null);
+    setPhase('setup');
+  }
+
+  function start(pool: typeof words) {
+    if (pool.length === 0 || selectedTypes.length === 0) return;
+    // Weighted rather than uniform: words that have gone longest without a review
+    // are the ones worth asking about.
+    const list = weightedSample(pool, plannedCount(pool.length), todayIso(), app.model);
+    begin(list, scopedWords, selectedTypes, null);
+  }
+
+  /**
+   * A focused review asks about every word it was handed, in the order it was given
+   * (most faded first), and draws distractors from the whole vocabulary — the scope
+   * and question-count settings belong to the setup screen, which was skipped.
+   */
+  useEffect(() => {
+    if (!pending || pending.ids.length === 0) return;
+    // Keyed off the ids so the caller's ordering (most faded first) survives.
+    const byId = new Map(words.map((w) => [w.id, w]));
+    const targeted = pending.ids.map((id) => byId.get(id)).filter((w): w is Word => w !== undefined);
+    onConsumePending?.();
+    if (targeted.length === 0) return;
+    // 유형을 하나도 안 골라둔 상태로 들어올 수 있으니 객관식으로 시작해요.
+    begin(targeted, words, selectedTypes.length > 0 ? selectedTypes : ['multiple-choice'], pending.label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   const current = questions[index];
   const { autoSpeak, autoSpeakExample } = app.state.settings;
@@ -310,11 +345,12 @@ export default function QuizPage({
           <Icon name="quiz" className="h-8 w-8" />
         </div>
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">퀴즈 완료!</h2>
+        {focusLabel && <Badge tone="rose">{focusLabel}</Badge>}
         <p className="text-sm text-slate-500">
           {total}문제 중 {correct}개 정답 ({acc}%)
         </p>
         <div className="mt-2 flex w-full max-w-xs gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => setPhase('setup')}>
+          <Button variant="secondary" className="flex-1" onClick={backToSetup}>
             다시 풀기
           </Button>
           <Button className="flex-1" onClick={() => onNavigate('games')}>
@@ -331,7 +367,7 @@ export default function QuizPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <button onClick={() => setPhase('setup')} className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <button onClick={backToSetup} className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
           <Icon name="chevron-left" className="h-4 w-4" /> 종료
         </button>
         <p className="text-sm font-semibold text-slate-500">
@@ -339,6 +375,12 @@ export default function QuizPage({
         </p>
       </div>
       <ProgressBar value={index} max={questions.length} />
+
+      {focusLabel && (
+        <div className="flex justify-center">
+          <Badge tone="rose">{focusLabel}</Badge>
+        </div>
+      )}
 
       <Card>
         <div className="flex items-center justify-between">

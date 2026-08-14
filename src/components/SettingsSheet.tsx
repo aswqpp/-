@@ -25,6 +25,12 @@ const AT_RISK_CHOICES = [
   { value: '0', label: '사용 안 함' },
 ];
 
+/** 홈 화면의 망각 위험군·취약 단어 버튼이 어떤 세션을 여는지. */
+const FOCUSED_REVIEW_CHOICES = [
+  { value: 'flashcard', label: '플래시카드로 복습' },
+  { value: 'quiz', label: '퀴즈로 복습' },
+];
+
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
 export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () => void }) {
@@ -155,6 +161,26 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
                 {atRiskDescription(settings.atRiskThreshold)}
                 {settings.atRiskThreshold > 0 && ' — 홈 화면 알림과 암기 단계에 함께 반영돼요.'}
+              </p>
+            </Section>
+
+            <Section title="집중 복습 방식" bordered>
+              <Select
+                ariaLabel="집중 복습 방식"
+                value={settings.focusedReviewMode}
+                options={FOCUSED_REVIEW_CHOICES}
+                onChange={(v) => app.updateSettings({ focusedReviewMode: v === 'quiz' ? 'quiz' : 'flashcard' })}
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                홈 화면의 망각 위험군 알림과 취약 단어 복습을 눌렀을 때{' '}
+                {settings.focusedReviewMode === 'quiz'
+                  ? '그 단어들로 바로 퀴즈를 내요. 유형·선택지 설정은 퀴즈 탭에서 고른 값을 그대로 써요.'
+                  : '그 단어들로 플래시카드 세션을 시작해요.'}
+                {settings.focusedReviewMode === 'quiz' && words.length < 2 && (
+                  <span className="mt-0.5 block text-amber-600 dark:text-amber-400">
+                    오답 선택지를 만들 단어가 부족해서, 단어가 2개 이상 쌓일 때까지는 플래시카드로 시작해요.
+                  </span>
+                )}
               </p>
             </Section>
 

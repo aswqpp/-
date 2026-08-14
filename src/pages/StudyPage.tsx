@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Word } from '../types';
+import type { PendingReview, Word } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Card, EmptyState, ProgressBar, DifficultyBadge, FavoriteStarButton, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -18,14 +18,14 @@ export default function StudyPage({
   app,
   onOpenQuiz,
   onSessionActiveChange,
-  pendingWordIds,
+  pending,
   onConsumePending,
 }: {
   app: UseAppState;
   onOpenQuiz: () => void;
   /** Lets the parent hide its tab strip while a session is in progress. */
   onSessionActiveChange?: (active: boolean) => void;
-  pendingWordIds?: string[] | null;
+  pending?: PendingReview | null;
   onConsumePending?: () => void;
 }) {
   const { words } = app.state;
@@ -39,7 +39,8 @@ export default function StudyPage({
   const [frontIsWord, setFrontIsWord] = useState(app.state.settings.flashcardFrontIsWord);
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
-  const [focusedReview, setFocusedReview] = useState(false);
+  /** Banner text for a handed-in session ("망각 위험군 집중 복습"), null for a normal one. */
+  const [focusLabel, setFocusLabel] = useState<string | null>(null);
   /** When the current card was put on screen — the response time recorded for it. */
   const cardShownRef = useRef(Date.now());
 
@@ -47,7 +48,7 @@ export default function StudyPage({
   // Most-faded first: a word 3 weeks past its due date matters more than one due today.
   const dueWords = useMemo(() => orderByUrgency(getDueWords(scopedWords), todayIso(), app.model), [scopedWords, app.model]);
 
-  function start(list: Word[], focused = false) {
+  function start(list: Word[], label: string | null = null) {
     if (list.length === 0) return;
     cardShownRef.current = Date.now();
     setQueue(list);
@@ -55,7 +56,7 @@ export default function StudyPage({
     setFlipped(false);
     setCorrect(0);
     setWrong(0);
-    setFocusedReview(focused);
+    setFocusLabel(label);
     setPhase('active');
   }
 
@@ -64,13 +65,14 @@ export default function StudyPage({
   }, [phase, onSessionActiveChange]);
 
   useEffect(() => {
-    if (!pendingWordIds || pendingWordIds.length === 0) return;
-    const idSet = new Set(pendingWordIds);
-    const targeted = words.filter((w) => idSet.has(w.id));
+    if (!pending || pending.ids.length === 0) return;
+    // Keyed off the ids so the caller's ordering (most faded first) survives.
+    const byId = new Map(words.map((w) => [w.id, w]));
+    const targeted = pending.ids.map((id) => byId.get(id)).filter((w): w is Word => w !== undefined);
     onConsumePending?.();
-    start(targeted, true);
+    start(targeted, pending.label);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingWordIds]);
+  }, [pending]);
 
   const activeWord = phase === 'active' ? queue[index] : undefined;
   const { autoSpeak, autoSpeakExample } = app.state.settings;
@@ -211,9 +213,9 @@ export default function StudyPage({
       </div>
       <ProgressBar value={index} max={queue.length} />
 
-      {focusedReview && (
+      {focusLabel && (
         <div className="flex justify-center">
-          <Badge tone="rose">취약 단어 집중 복습</Badge>
+          <Badge tone="rose">{focusLabel}</Badge>
         </div>
       )}
 

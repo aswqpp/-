@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Screen } from './types';
+import type { PendingReview, Screen } from './types';
 import { useAppState } from './hooks/useAppState';
 import { Icon, type IconName } from './components/Icon';
 import { getDueWords } from './lib/srs';
@@ -24,15 +24,21 @@ const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
 export default function App() {
   const app = useAppState();
   const [screen, setScreen] = useState<Screen>('home');
-  const [pendingStudyIds, setPendingStudyIds] = useState<string[] | null>(null);
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [learnTab, setLearnTab] = useState<LearnTab>('flashcard');
 
   const dueCount = useMemo(() => getDueWords(app.state.words).length, [app.state.words]);
 
-  function startFocusedReview(wordIds: string[]) {
-    setPendingStudyIds(wordIds);
-    setLearnTab('flashcard');
+  /**
+   * Opens a session over exactly these words. Whether that is a flashcard run or a
+   * quiz is the learner's choice (설정 → 학습 설정), except that a quiz needs other
+   * words to draw distractors from — with one word in the app it falls back to cards.
+   */
+  function startFocusedReview(review: PendingReview) {
+    const asQuiz = app.state.settings.focusedReviewMode === 'quiz' && app.state.words.length >= 2;
+    setPendingReview(review);
+    setLearnTab(asQuiz ? 'quiz' : 'flashcard');
     setScreen('study');
   }
 
@@ -114,8 +120,8 @@ export default function App() {
             tab={learnTab}
             onTabChange={setLearnTab}
             onNavigate={navigate}
-            pendingWordIds={pendingStudyIds}
-            onConsumePending={() => setPendingStudyIds(null)}
+            pending={pendingReview}
+            onConsumePending={() => setPendingReview(null)}
           />
         )}
         {screen === 'games' && <GamesPage app={app} onNavigate={navigate} />}

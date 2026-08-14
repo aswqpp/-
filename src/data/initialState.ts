@@ -24,6 +24,7 @@ export function buildInitialState(): AppState {
       autoSpeak: true,
       autoSpeakExample: false,
       atRiskThreshold: DEFAULT_AT_RISK_THRESHOLD,
+      focusedReviewMode: 'flashcard',
     },
   };
 }

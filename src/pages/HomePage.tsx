@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Screen } from '../types';
+import type { PendingReview, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card, Button, Badge } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -19,9 +19,11 @@ export default function HomePage({
   app: UseAppState;
   dueCount: number;
   onNavigate: (s: Screen) => void;
-  onStartReview: (wordIds: string[]) => void;
+  onStartReview: (review: PendingReview) => void;
 }) {
   const { words, log } = app.state;
+  const { focusedReviewMode } = app.state.settings;
+  const asQuiz = focusedReviewMode === 'quiz' && words.length >= 2;
   const streak = computeStreak(log);
   const today = getTodayEntry(log);
   const studiedToday = today?.studiedCount ?? 0;
@@ -75,7 +77,7 @@ export default function HomePage({
           <Button
             variant="secondary"
             className="flex-1"
-            onClick={() => onStartReview(weak.map((w) => w.word.id))}
+            onClick={() => onStartReview({ ids: weak.map((w) => w.word.id), label: '취약 단어 집중 복습' })}
             disabled={weak.length === 0}
           >
             <Icon name="flame" className="h-4 w-4" /> 취약 단어
@@ -100,7 +102,9 @@ export default function HomePage({
 
       {atRisk.length > 0 && (
         <button
-          onClick={() => onStartReview(atRisk.slice(0, 20).map((w) => w.id))}
+          onClick={() =>
+            onStartReview({ ids: atRisk.slice(0, 20).map((w) => w.id), label: '망각 위험군 집중 복습' })
+          }
           className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-left dark:border-rose-900 dark:bg-rose-950/50"
         >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-500 dark:bg-rose-900/60">
@@ -109,7 +113,7 @@ export default function HomePage({
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-rose-700 dark:text-rose-300">망각 위험군 {atRisk.length}개</span>
             <span className="block text-[11px] text-rose-500/80 dark:text-rose-400/80">
-              마지막 복습 이후 시간이 지나 기억이 흐려질 때가 됐어요. 눌러서 바로 복습하기.
+              마지막 복습 이후 시간이 지나 기억이 흐려질 때가 됐어요. 눌러서 바로 {asQuiz ? '퀴즈로' : '카드로'} 복습하기.
             </span>
           </span>
           <Icon name="chevron-right" className="h-4 w-4 shrink-0 text-rose-400" />
@@ -121,7 +125,7 @@ export default function HomePage({
           <p className="text-sm font-bold text-slate-700 dark:text-slate-200">취약 단어 Top {WEAK_WORDS_TOP_N}</p>
           {weak.length > 0 && (
             <button
-              onClick={() => onStartReview(weak.map((w) => w.word.id))}
+              onClick={() => onStartReview({ ids: weak.map((w) => w.word.id), label: '취약 단어 집중 복습' })}
               className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
             >
               전체 복습하기
@@ -143,7 +147,11 @@ export default function HomePage({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Badge tone="rose">오답률 {Math.round(w.wrongRate * 100)}%</Badge>
-                  <Button variant="secondary" className="px-2.5 py-1.5 text-xs" onClick={() => onStartReview([w.word.id])}>
+                  <Button
+                    variant="secondary"
+                    className="px-2.5 py-1.5 text-xs"
+                    onClick={() => onStartReview({ ids: [w.word.id], label: '취약 단어 집중 복습' })}
+                  >
                     복습
                   </Button>
                 </div>

@@ -153,6 +153,7 @@ function normalizeSettings(raw: unknown): AppSettings {
     autoSpeak: r.autoSpeak !== false,
     autoSpeakExample: r.autoSpeakExample === true,
     atRiskThreshold: Math.min(0.95, Math.max(0, num(r.atRiskThreshold, DEFAULT_AT_RISK_THRESHOLD))),
+    focusedReviewMode: r.focusedReviewMode === 'quiz' ? 'quiz' : 'flashcard',
   };
 }
 
