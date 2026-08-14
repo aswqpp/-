@@ -30,7 +30,11 @@ export default function HomePage({
   const accuracyToday = correctToday + wrongToday > 0 ? Math.round((correctToday / (correctToday + wrongToday)) * 100) : null;
 
   const weak = useMemo(() => weakWords(words, WEAK_WORDS_TOP_N), [words]);
-  const atRisk = useMemo(() => atRiskWords(words, undefined, app.model), [words, app.model]);
+  const { atRiskThreshold } = app.state.settings;
+  const atRisk = useMemo(
+    () => atRiskWords(words, undefined, app.model, atRiskThreshold),
+    [words, app.model, atRiskThreshold]
+  );
 
   return (
     <div className="flex flex-col gap-4">

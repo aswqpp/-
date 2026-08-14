@@ -15,6 +15,7 @@ import { createInitialSrs, HISTORY_LIMIT, migrateState, STATE_VERSION, withDeriv
 const STORAGE_KEY = 'voca-app-state-v1';
 
 export const DEFAULT_DAILY_GOAL = 20;
+export const DEFAULT_AT_RISK_THRESHOLD = 0.8;
 
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
 const REVIEW_MODES: ReviewMode[] = ['mc', 'listening', 'spelling', 'flashcard', 'game'];
@@ -151,6 +152,7 @@ function normalizeSettings(raw: unknown): AppSettings {
     dailyGoal: Math.min(500, Math.max(1, goal)),
     autoSpeak: r.autoSpeak !== false,
     autoSpeakExample: r.autoSpeakExample === true,
+    atRiskThreshold: Math.min(0.95, Math.max(0, num(r.atRiskThreshold, DEFAULT_AT_RISK_THRESHOLD))),
   };
 }
 

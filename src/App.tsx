@@ -16,7 +16,7 @@ const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
   { screen: 'home', label: '홈', icon: 'home' },
   { screen: 'words', label: '단어장', icon: 'book' },
   // Quizzes live inside 학습 as a tab: same job, one nav slot.
-  { screen: 'study', label: '학습', icon: 'cards' },
+  { screen: 'study', label: '학습', icon: 'cap' },
   { screen: 'games', label: '게임', icon: 'game' },
   { screen: 'stats', label: '통계', icon: 'chart' },
 ];

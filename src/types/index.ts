@@ -106,6 +106,12 @@ export interface AppSettings {
   autoSpeak: boolean;
   /** Also read the example sentence, once the answer is on screen. */
   autoSpeakExample: boolean;
+  /**
+   * Predicted recall below which a word is called 망각 위험군, 0–1.
+   * 0 turns the group off entirely — the stage disappears and the home banner
+   * with it, for learners who would rather not be nagged.
+   */
+  atRiskThreshold: number;
 }
 
 /** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */

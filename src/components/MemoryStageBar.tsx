@@ -1,4 +1,4 @@
-import { MEMORY_STAGES, MEMORY_STAGE_DESC, MEMORY_STAGE_LABEL, type MemoryStage } from '../lib/memory';
+import { atRiskDescription, MEMORY_STAGES, MEMORY_STAGE_DESC, MEMORY_STAGE_LABEL, type MemoryStage } from '../lib/memory';
 
 const STAGE_COLOR: Record<MemoryStage, { bar: string; dot: string }> = {
   new: { bar: 'bg-slate-300 dark:bg-slate-600', dot: 'bg-slate-300 dark:bg-slate-600' },
@@ -8,7 +8,15 @@ const STAGE_COLOR: Record<MemoryStage, { bar: string; dot: string }> = {
   atRisk: { bar: 'bg-rose-500', dot: 'bg-rose-500' },
 };
 
-export function MemoryStageBar({ data, total }: { data: Record<MemoryStage, number>; total: number }) {
+export function MemoryStageBar({
+  data,
+  total,
+  atRiskThreshold,
+}: {
+  data: Record<MemoryStage, number>;
+  total: number;
+  atRiskThreshold: number;
+}) {
   if (total === 0) {
     return <p className="py-4 text-center text-xs text-slate-400">아직 단어가 없어요.</p>;
   }
@@ -46,7 +54,8 @@ export function MemoryStageBar({ data, total }: { data: Record<MemoryStage, numb
       <ul className="space-y-0.5 text-[11px] leading-relaxed text-slate-400">
         {MEMORY_STAGES.map((key) => (
           <li key={key}>
-            · <span className="font-semibold">{MEMORY_STAGE_LABEL[key]}</span> — {MEMORY_STAGE_DESC[key]}
+            · <span className="font-semibold">{MEMORY_STAGE_LABEL[key]}</span> —{' '}
+            {key === 'atRisk' ? atRiskDescription(atRiskThreshold) : MEMORY_STAGE_DESC[key]}
           </li>
         ))}
       </ul>

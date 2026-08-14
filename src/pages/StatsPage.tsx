@@ -59,7 +59,10 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
   const totals = useMemo(() => studyTotals(log), [log]);
   const bestStreak = useMemo(() => longestStreak(log), [log]);
   const weekday = useMemo(() => weekdayPattern(log), [log]);
-  const stages = useMemo(() => memoryStageDistribution(words, app.model), [words, app.model]);
+  const stages = useMemo(
+    () => memoryStageDistribution(words, app.model, app.state.settings.atRiskThreshold),
+    [words, app.model, app.state.settings.atRiskThreshold]
+  );
   const retention = useMemo(() => retentionStats(words), [words]);
   const forecastMax = Math.max(1, ...forecast.perDay.map((d) => d.count));
   const [formulaOpen, setFormulaOpen] = useState(false);
@@ -131,7 +134,7 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
       <Card>
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">암기 단계 ({words.length}개)</p>
         <p className="mb-3 text-xs text-slate-400">간격 반복 알고리즘이 각 단어를 어디까지 밀어냈는지예요.</p>
-        <MemoryStageBar data={stages} total={words.length} />
+        <MemoryStageBar data={stages} total={words.length} atRiskThreshold={app.state.settings.atRiskThreshold} />
       </Card>
 
       <Card>

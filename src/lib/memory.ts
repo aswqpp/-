@@ -14,7 +14,10 @@ import { todayIso } from './srs';
 export const TARGET_RETENTION = 0.9;
 const DECAY = -Math.log(TARGET_RETENTION); // ≈ 0.1054
 
-/** Below this predicted recall a word is treated as at risk of being forgotten. */
+/**
+ * Default recall below which a word is treated as at risk of being forgotten.
+ * The learner can move it — or switch the group off — in settings.
+ */
 export const AT_RISK_BELOW = 0.8;
 
 export function daysBetween(fromIso: string, toIso: string): number {
@@ -56,9 +59,15 @@ export function reviewUrgency(word: Word, today: string = todayIso(), model?: De
   return r == null ? 1 : 1 - r;
 }
 
-export function isAtRisk(word: Word, today: string = todayIso(), model?: DeckModel): boolean {
+export function isAtRisk(
+  word: Word,
+  today: string = todayIso(),
+  model?: DeckModel,
+  threshold: number = AT_RISK_BELOW
+): boolean {
+  if (threshold <= 0) return false; // the group is switched off
   const r = predictedRetention(word, today, model);
-  return r != null && r < AT_RISK_BELOW;
+  return r != null && r < threshold;
 }
 
 /** Most-faded first. */
@@ -114,8 +123,14 @@ export const MEMORY_STAGE_DESC: Record<MemoryStage, string> = {
   learning: '이제 막 익히기 시작한 단어',
   reviewing: '연속 정답이 쌓여 복습 주기가 늘어나는 중',
   mastered: '복습 간격이 3주 이상까지 벌어진 단어',
-  atRisk: `마지막 복습 이후 시간이 지나 예상 기억률이 ${Math.round(AT_RISK_BELOW * 100)}% 아래로 떨어진 단어`,
+  atRisk: `마지막 복습 이후 시간이 지나 예상 기억률이 설정한 기준 아래로 떨어진 단어`,
 };
+
+/** The at-risk line, spelled out with the learner's own threshold. */
+export function atRiskDescription(threshold: number): string {
+  if (threshold <= 0) return '사용하지 않도록 설정되어 있어요';
+  return `마지막 복습 이후 시간이 지나 예상 기억률이 ${Math.round(threshold * 100)}% 아래로 떨어진 단어`;
+}
 
 /** A word counts as 암기 완료 once it has a solid streak and a 3-week-plus interval. */
 export function isMastered(word: Word): boolean {
@@ -127,10 +142,15 @@ export function isMastered(word: Word): boolean {
  * often it is missed, this says how far the scheduler has pushed it out — and
  * whether the memory has since faded past the point of being reliable.
  */
-export function memoryStage(word: Word, today: string = todayIso(), model?: DeckModel): MemoryStage {
+export function memoryStage(
+  word: Word,
+  today: string = todayIso(),
+  model?: DeckModel,
+  threshold: number = AT_RISK_BELOW
+): MemoryStage {
   const { repetitions, correctCount, wrongCount } = word.srs;
   if (correctCount + wrongCount === 0) return 'new';
-  if (isAtRisk(word, today, model)) return 'atRisk';
+  if (isAtRisk(word, today, model, threshold)) return 'atRisk';
   if (isMastered(word)) return 'mastered';
   if (repetitions >= MEMORY_REVIEWING_REPS) return 'reviewing';
   return 'learning';
@@ -138,17 +158,26 @@ export function memoryStage(word: Word, today: string = todayIso(), model?: Deck
 
 const MEMORY_REVIEWING_REPS = 2;
 
-export function memoryStageDistribution(words: Word[], model?: DeckModel): Record<MemoryStage, number> {
+export function memoryStageDistribution(
+  words: Word[],
+  model?: DeckModel,
+  threshold: number = AT_RISK_BELOW
+): Record<MemoryStage, number> {
   const today = todayIso();
   const dist: Record<MemoryStage, number> = { new: 0, learning: 0, reviewing: 0, mastered: 0, atRisk: 0 };
-  for (const w of words) dist[memoryStage(w, today, model)]++;
+  for (const w of words) dist[memoryStage(w, today, model, threshold)]++;
   return dist;
 }
 
 /** Words most in danger of being lost, worst first. */
-export function atRiskWords(words: Word[], topN?: number, model?: DeckModel): Word[] {
+export function atRiskWords(
+  words: Word[],
+  topN?: number,
+  model?: DeckModel,
+  threshold: number = AT_RISK_BELOW
+): Word[] {
   const today = todayIso();
-  const risky = words.filter((w) => memoryStage(w, today, model) === 'atRisk');
+  const risky = words.filter((w) => memoryStage(w, today, model, threshold) === 'atRisk');
   const sorted = orderByUrgency(risky, today, model);
   return topN ? sorted.slice(0, topN) : sorted;
 }

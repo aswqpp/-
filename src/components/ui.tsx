@@ -131,7 +131,10 @@ export function FilterChip({
       }`}
     >
       {children}
-      {count !== undefined && <span className={active ? 'opacity-70' : 'opacity-50'}>{count}</span>}
+      {/* A zero is noise — an empty bucket is already conveyed by the chip doing nothing. */}
+      {count !== undefined && count > 0 && (
+        <span className={active ? 'opacity-70' : 'opacity-50'}>{count}</span>
+      )}
     </button>
   );
 }
@@ -183,8 +186,6 @@ export function DifficultyBadge({
       className={`inline-flex min-w-6 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_BUTTON_TONE[value]} ${className}`}
     >
       {DIFFICULTY_LABEL[value]}
-      {/* A hollow dot marks a level the model has not confirmed yet. */}
-      {provisional && <span aria-hidden className="text-[9px] opacity-60">○</span>}
     </span>
   );
 }

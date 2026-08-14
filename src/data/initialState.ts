@@ -1,5 +1,5 @@
 import type { AppState } from '../types';
-import { DEFAULT_DAILY_GOAL } from '../lib/storage';
+import { DEFAULT_AT_RISK_THRESHOLD, DEFAULT_DAILY_GOAL } from '../lib/storage';
 
 function genId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -23,6 +23,7 @@ export function buildInitialState(): AppState {
       dailyGoal: DEFAULT_DAILY_GOAL,
       autoSpeak: true,
       autoSpeakExample: false,
+      atRiskThreshold: DEFAULT_AT_RISK_THRESHOLD,
     },
   };
 }

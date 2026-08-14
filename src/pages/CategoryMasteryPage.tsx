@@ -32,7 +32,7 @@ export default function CategoryMasteryPage({ app, onBack }: { app: UseAppState;
         dist = { new: 0, learning: 0, reviewing: 0, mastered: 0, atRisk: 0 };
         byCategory.set(key, dist);
       }
-      dist[memoryStage(w)]++;
+      dist[memoryStage(w, undefined, app.model, app.state.settings.atRiskThreshold)]++;
     }
 
     const sorted = [...base].sort((a, b) => {
@@ -42,7 +42,7 @@ export default function CategoryMasteryPage({ app, onBack }: { app: UseAppState;
     });
 
     return sorted.map((c) => ({ ...c, stages: byCategory.get(c.category)! }));
-  }, [words, sort]);
+  }, [words, sort, app.model, app.state.settings.atRiskThreshold]);
 
   const overall = useMemo(() => {
     const mastered = rows.reduce((sum, r) => sum + r.mastered, 0);

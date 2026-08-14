@@ -1,9 +1,29 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { AppState } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Button, Badge } from './ui';
 import { Icon } from './Icon';
 import { downloadBackup, parseBackup } from '../lib/backup';
+import { Select } from './Select';
+import { atRiskDescription } from '../lib/memory';
+
+type Tab = 'study' | 'general';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'study', label: '학습 설정' },
+  { key: 'general', label: '일반' },
+];
+
+/**
+ * How aggressive the 망각 위험군 group is. Higher means a word is flagged sooner,
+ * because it takes less forgetting to fall under the line.
+ */
+const AT_RISK_CHOICES = [
+  { value: '0.9', label: '민감 · 기억률 90% 미만' },
+  { value: '0.8', label: '보통 · 기억률 80% 미만' },
+  { value: '0.7', label: '느슨 · 기억률 70% 미만' },
+  { value: '0', label: '사용 안 함' },
+];
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -12,6 +32,7 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
   const [goalInput, setGoalInput] = useState(String(settings.dailyGoal));
   const [notice, setNotice] = useState<Notice>(null);
   const [pending, setPending] = useState<{ state: AppState; exportedAt: string | null } | null>(null);
+  const [tab, setTab] = useState<Tab>('study');
   const fileRef = useRef<HTMLInputElement>(null);
 
   function commitGoal(raw: string) {
@@ -87,97 +108,146 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
           </button>
         </div>
 
-        <section className="mb-5">
-          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">화면</p>
-          <ToggleRow
-            label="다크 모드"
-            hint="어두운 배경으로 전환해요."
-            checked={settings.darkMode}
-            onChange={app.toggleDarkMode}
-          />
-        </section>
-
-        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">발음 자동 재생</p>
-          <ToggleRow
-            label="문제 단어 자동 발음"
-            hint="플래시카드와 퀴즈에서 단어가 나오면 바로 읽어줘요. 답이 단어 자체인 문제(스펠링·뜻→단어)에서는 재생하지 않아요."
-            checked={settings.autoSpeak}
-            onChange={(v) => app.updateSettings({ autoSpeak: v })}
-          />
-          <ToggleRow
-            label="예문도 함께 읽기"
-            hint="정답을 확인한 뒤 예문을 이어서 읽어줘요."
-            checked={settings.autoSpeakExample}
-            disabled={!settings.autoSpeak}
-            onChange={(v) => app.updateSettings({ autoSpeakExample: v })}
-          />
-        </section>
-
-        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">하루 학습 목표</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              max={500}
-              className="input w-24"
-              value={goalInput}
-              onChange={(e) => setGoalInput(e.target.value)}
-              onBlur={(e) => commitGoal(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && commitGoal((e.target as HTMLInputElement).value)}
-            />
-            <span className="text-sm text-slate-500">개 / 일</span>
-          </div>
-          <p className="mt-1.5 text-[11px] text-slate-400">홈 화면에 오늘 진행률로 표시돼요.</p>
-        </section>
-
-        <section className="mb-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">데이터 백업</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-            단어와 학습 기록은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니,
-            가끔 파일로 내보내 두시는 걸 권해요.
-          </p>
-
-          <div className="mt-3 flex gap-2">
-            <Button variant="secondary" className="flex-1" onClick={handleExport}>
-              <Icon name="chevron-right" className="h-4 w-4 rotate-90" /> 내보내기
-            </Button>
-            <Button variant="secondary" className="flex-1" onClick={() => fileRef.current?.click()}>
-              <Icon name="chevron-left" className="h-4 w-4 rotate-90" /> 가져오기
-            </Button>
-            <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFile} />
-          </div>
-
-          <p className="mt-2 text-[11px] text-slate-400">
-            현재 단어 {words.length}개 · 학습 기록 {app.state.log.length}일치
-          </p>
-        </section>
-
-        {pending && (
-          <div className="animate-pop-in mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
-            <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-              백업 파일에 단어 {pending.state.words.length}개
-            </p>
-            {pending.exportedAt && (
-              <p className="mt-0.5 text-[11px] text-slate-400">내보낸 날짜: {pending.exportedAt.slice(0, 10)}</p>
-            )}
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">어떻게 가져올까요?</p>
-            <div className="mt-2 flex gap-2">
-              <Button className="flex-1" onClick={confirmMerge}>
-                합치기
-              </Button>
-              <Button variant="danger" className="flex-1" onClick={confirmReplace}>
-                덮어쓰기
-              </Button>
-            </div>
-            <p className="mt-2 text-[11px] text-slate-400">
-              합치기는 없는 단어만 추가하고 현재 학습 기록을 유지해요. 덮어쓰기는 전부 백업 내용으로 대체해요.
-            </p>
-            <button onClick={() => setPending(null)} className="mt-2 text-[11px] font-semibold text-slate-400 hover:text-slate-600">
-              취소
+        {/* Two tabs: what the app does while you study, and everything else. */}
+        <div className="mb-5 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-950">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              aria-current={tab === t.key}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                tab === t.key
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-400'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              {t.label}
             </button>
-          </div>
+          ))}
+        </div>
+
+        {tab === 'study' ? (
+          <>
+            <Section title="하루 학습 목표">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  className="input w-24"
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                  onBlur={(e) => commitGoal(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && commitGoal((e.target as HTMLInputElement).value)}
+                />
+                <span className="text-sm text-slate-500">개 / 일</span>
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-400">홈 화면에 오늘 진행률로 표시돼요.</p>
+            </Section>
+
+            <Section title="망각 위험군" bordered>
+              <Select
+                ariaLabel="망각 위험군 기준"
+                value={String(settings.atRiskThreshold)}
+                options={AT_RISK_CHOICES}
+                onChange={(v) => app.updateSettings({ atRiskThreshold: Number(v) })}
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                {atRiskDescription(settings.atRiskThreshold)}
+                {settings.atRiskThreshold > 0 && ' — 홈 화면 알림과 암기 단계에 함께 반영돼요.'}
+              </p>
+            </Section>
+
+            <Section title="발음 자동 재생" bordered>
+              <ToggleRow
+                label="문제 단어 자동 발음"
+                hint="플래시카드와 퀴즈에서 단어가 나오면 바로 읽어줘요. 답이 단어 자체인 문제(스펠링·뜻→단어)에서는 재생하지 않아요."
+                checked={settings.autoSpeak}
+                onChange={(v) => app.updateSettings({ autoSpeak: v })}
+              />
+              <ToggleRow
+                label="예문도 함께 읽기"
+                hint="정답을 확인한 뒤 예문을 이어서 읽어줘요."
+                checked={settings.autoSpeakExample}
+                disabled={!settings.autoSpeak}
+                onChange={(v) => app.updateSettings({ autoSpeakExample: v })}
+              />
+            </Section>
+          </>
+        ) : (
+          <>
+            <Section title="화면">
+              <ToggleRow
+                label="다크 모드"
+                hint="어두운 배경으로 전환해요."
+                checked={settings.darkMode}
+                onChange={app.toggleDarkMode}
+              />
+            </Section>
+
+            <Section title="데이터 백업" bordered>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                단어와 학습 기록은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니,
+                가끔 파일로 내보내 두시는 걸 권해요.
+              </p>
+
+              <div className="mt-3 flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={handleExport}>
+                  <Icon name="chevron-right" className="h-4 w-4 rotate-90" /> 내보내기
+                </Button>
+                <Button variant="secondary" className="flex-1" onClick={() => fileRef.current?.click()}>
+                  <Icon name="chevron-left" className="h-4 w-4 rotate-90" /> 가져오기
+                </Button>
+                <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFile} />
+              </div>
+
+              <p className="mt-2 text-[11px] text-slate-400">
+                현재 단어 {words.length}개 · 학습 기록 {app.state.log.length}일치
+              </p>
+
+              {pending && (
+                <div className="animate-pop-in mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
+                  <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                    백업 파일에 단어 {pending.state.words.length}개
+                  </p>
+                  {pending.exportedAt && (
+                    <p className="mt-0.5 text-[11px] text-slate-400">내보낸 날짜: {pending.exportedAt.slice(0, 10)}</p>
+                  )}
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">어떻게 가져올까요?</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button className="flex-1" onClick={confirmMerge}>
+                      합치기
+                    </Button>
+                    <Button variant="danger" className="flex-1" onClick={confirmReplace}>
+                      덮어쓰기
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    합치기는 없는 단어만 추가하고 현재 학습 기록을 유지해요. 덮어쓰기는 전부 백업 내용으로 대체해요.
+                  </p>
+                  <button onClick={() => setPending(null)} className="mt-2 text-[11px] font-semibold text-slate-400 hover:text-slate-600">
+                    취소
+                  </button>
+                </div>
+              )}
+            </Section>
+
+            <Section title="위험 구역" bordered tone="danger">
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                단어 {words.length}개와 모든 학습 기록이 지워져요. 되돌릴 수 없으니, 필요하면 먼저 내보내 두세요.
+              </p>
+              <Button variant="danger" className="mt-2 w-full" onClick={handleDeleteAll} disabled={words.length === 0}>
+                <Icon name="trash" className="h-4 w-4" /> 모든 단어 삭제
+              </Button>
+            </Section>
+
+            <Section title="앱 정보" bordered>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-slate-400">beOm · 오프라인 사용 가능</p>
+                <Badge tone="indigo">PWA</Badge>
+              </div>
+            </Section>
+          </>
         )}
 
         {notice && (
@@ -186,27 +256,29 @@ export function SettingsSheet({ app, onClose }: { app: UseAppState; onClose: () 
           </p>
         )}
 
-        <section className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <p className="text-xs font-semibold text-rose-500">위험 구역</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-            단어 {words.length}개와 모든 학습 기록이 지워져요. 되돌릴 수 없으니, 필요하면 먼저 내보내 두세요.
-          </p>
-          <Button variant="danger" className="mt-2 w-full" onClick={handleDeleteAll} disabled={words.length === 0}>
-            <Icon name="trash" className="h-4 w-4" /> 모든 단어 삭제
-          </Button>
-        </section>
-
-        <section className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">앱 정보</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">beOm · 오프라인 사용 가능</p>
-            </div>
-            <Badge tone="indigo">PWA</Badge>
-          </div>
-        </section>
       </div>
     </div>
+  );
+}
+
+function Section({
+  title,
+  bordered = false,
+  tone = 'default',
+  children,
+}: {
+  title: string;
+  bordered?: boolean;
+  tone?: 'default' | 'danger';
+  children: ReactNode;
+}) {
+  return (
+    <section className={`mb-5 ${bordered ? 'border-t border-slate-100 pt-4 dark:border-slate-800' : ''}`}>
+      <p className={`mb-2 text-xs font-semibold ${tone === 'danger' ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>
+        {title}
+      </p>
+      {children}
+    </section>
   );
 }
 
