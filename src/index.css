@@ -172,6 +172,25 @@ body {
   animation: slide-up 0.25s ease-out;
 }
 
+/*
+ * The streak ring drawing itself in. Plain ease-out, no bounce: the mark is meant to
+ * arrive quietly, and elastic easing on a brand shape reads as a toy.
+ */
+.om-arc {
+  transition: stroke-dashoffset 0.45s ease-out;
+}
+
+.om-dot {
+  transition: r 0.45s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .om-arc,
+  .om-dot {
+    transition: none;
+  }
+}
+
 @keyframes wiggle {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-6px); }

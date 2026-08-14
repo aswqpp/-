@@ -30,6 +30,7 @@ export function buildInitialState(): AppState {
       dailyNewCap: DEFAULT_NEW_CAP,
       lastBackupAt: null,
       backupSnoozeUntil: null,
+      lastSeenStreak: 0,
     },
   };
 }

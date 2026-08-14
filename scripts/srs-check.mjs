@@ -8,6 +8,7 @@ const backup = await jiti.import('/home/user/-/src/lib/backup.ts');
 const sched = await jiti.import('/home/user/-/src/lib/scheduling.ts');
 const memory = await jiti.import('/home/user/-/src/lib/memory.ts');
 const persistence = await jiti.import('/home/user/-/src/lib/persistence.ts');
+const streak = await jiti.import('/home/user/-/src/lib/streak.ts');
 
 let failures = 0;
 function check(name, actual, expected) {
@@ -416,6 +417,23 @@ check('quiet right after a backup', persistence.backupReminder(50, '2026-08-10',
 check('nags again after 30 days', persistence.backupReminder(50, '2026-07-01', null, remToday).show, true);
 check('snooze wins', persistence.backupReminder(50, '2026-07-01', '2026-08-20', remToday).show, false);
 check('expired snooze does not', persistence.backupReminder(50, '2026-07-01', '2026-08-13', remToday).show, true);
+
+/* ---- streak mark ---- */
+check('day 0 draws nothing', streak.streakProgress(0), 0);
+check('a negative streak is still nothing', streak.streakProgress(-3), 0);
+const sweep = (d) => Math.round(streak.streakProgress(d) * 100);
+check('milestone sweeps', [sweep(1), sweep(3), sweep(7), sweep(14), sweep(30)], [18, 32, 48, 68, 100]);
+check('the sweep never exceeds full', streak.streakProgress(365), 1);
+check(
+  'every day adds something up to the full sweep',
+  (() => {
+    for (let d = 1; d < streak.FULL_DAYS; d++) {
+      if (streak.streakProgress(d + 1) <= streak.streakProgress(d)) return `flat at ${d}`;
+    }
+    return 'monotonic';
+  })(),
+  'monotonic'
+);
 
 /* ---- settings normalization ---- */
 check(

@@ -170,6 +170,7 @@ function normalizeSettings(raw: unknown): AppSettings {
     dailyNewCap: capValue(r.dailyNewCap, DEFAULT_NEW_CAP),
     lastBackupAt: localDate(r.lastBackupAt),
     backupSnoozeUntil: localDate(r.backupSnoozeUntil),
+    lastSeenStreak: Math.max(0, Math.round(num(r.lastSeenStreak, 0))),
   };
 }
 

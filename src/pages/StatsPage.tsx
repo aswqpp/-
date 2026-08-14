@@ -19,6 +19,8 @@ import {
   retentionStats,
 } from '../lib/stats';
 import { LEECH_LAPSES, leechWords, memoryStageDistribution } from '../lib/memory';
+import { StreakOm } from '../components/StreakOm';
+import { GOLD_DAYS } from '../lib/streak';
 import { StudyVolumeChart } from '../components/StudyVolumeChart';
 import { LearningCurveChart } from '../components/LearningCurveChart';
 import { AccuracyTrendChart } from '../components/AccuracyTrendChart';
@@ -74,7 +76,7 @@ export default function StatsPage({ app, onNavigate }: { app: UseAppState; onNav
 
       <div className="grid grid-cols-3 gap-2.5">
         <Card padding="p-3" className="flex flex-col items-center text-center">
-          <Icon name="flame" className="h-5 w-5 text-orange-500" />
+          <StreakOm days={streak} className={`h-5 w-5 ${streak >= GOLD_DAYS ? 'text-amber-500' : 'text-emerald-500'}`} />
           <p className="mt-1.5 text-lg font-extrabold text-slate-800 dark:text-slate-100">{streak}일</p>
           <p className="text-[11px] text-slate-400">연속 학습</p>
         </Card>

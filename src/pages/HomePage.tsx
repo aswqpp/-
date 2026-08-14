@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { PendingReview, Screen } from '../types';
 import type { UseAppState } from '../hooks/useAppState';
 import { Card, Button, Badge } from '../components/ui';
@@ -8,6 +8,8 @@ import { atRiskWords } from '../lib/memory';
 import { GoalRing } from '../components/GoalRing';
 import { Enso } from '../components/Brand';
 import { backupReminder, BACKUP_SNOOZE_DAYS } from '../lib/persistence';
+import { StreakOm } from '../components/StreakOm';
+import { GOLD_DAYS } from '../lib/streak';
 import { addDays, todayIso } from '../lib/srs';
 
 const WEAK_WORDS_TOP_N = 5;
@@ -48,6 +50,16 @@ export default function HomePage({
   const { lastBackupAt, backupSnoozeUntil } = app.state.settings;
   const reminder = backupReminder(words.length, lastBackupAt, backupSnoozeUntil);
 
+  /*
+   * The streak the learner had on screen last time, captured before this render can
+   * overwrite it. Only the mark uses it, and only when the streak has fallen: it lets
+   * the ring wind back down instead of appearing already empty.
+   */
+  const lastSeenStreak = useRef(app.state.settings.lastSeenStreak);
+  useEffect(() => {
+    if (app.state.settings.lastSeenStreak !== streak) app.updateSettings({ lastSeenStreak: streak });
+  }, [streak, app]);
+
   return (
     <div className="flex flex-col gap-4">
       {/* The ensō sits behind the hero as a watermark — present, not shouting. */}
@@ -67,8 +79,16 @@ export default function HomePage({
               </p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-            <Icon name="flame" className="h-4 w-4" />
+          {/* Same chip, same place, same number — only the mark inside it grows. */}
+          <div
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${
+              streak >= GOLD_DAYS
+                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+            }`}
+            title={`연속 학습 ${streak}일`}
+          >
+            <StreakOm days={streak} from={lastSeenStreak.current} className="h-4 w-4" />
             {streak}일
           </div>
         </div>

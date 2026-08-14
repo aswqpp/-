@@ -134,6 +134,11 @@ export interface AppSettings {
   lastBackupAt: string | null;
   /** The backup reminder stays quiet until this local date. */
   backupSnoozeUntil: string | null;
+  /**
+   * The streak the learner last had on screen. Kept only so a broken streak can be
+   * shown falling back rather than appearing already reset.
+   */
+  lastSeenStreak: number;
 }
 
 /** Record of the one-way v1 → v4 upgrade, kept so the log cutoff survives reloads. */
