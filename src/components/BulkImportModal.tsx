@@ -13,11 +13,13 @@ import {
   detectMapping,
   looksLikeHeaderRow,
   buildImportedRow,
+  applyRowEdit,
   columnLabel,
   type FieldMapping,
   type ImportDefaults,
   type ImportedRow,
   type MappableField,
+  type RowEdit,
 } from '../lib/importMapping';
 
 type Step = 'select' | 'parsing' | 'mapping' | 'phonetics' | 'result' | 'error';
@@ -37,6 +39,10 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
   const [fillPhonetics, setFillPhonetics] = useState(true);
   const [phoneticProgress, setPhoneticProgress] = useState({ done: 0, total: 0 });
   const [errorMsg, setErrorMsg] = useState('');
+  const [fileWarnings, setFileWarnings] = useState<string[]>([]);
+  /** Corrections typed into the review list, by data-row index. */
+  const [edits, setEdits] = useState<Record<number, RowEdit>>({});
+  const [excluded, setExcluded] = useState<Set<number>>(() => new Set());
   const [result, setResult] = useState<{ added: number; skippedDuplicates: number; invalid: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -55,6 +61,9 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
         ? detectMapping(parsed.rows[0])
         : { ...detectMapping([]), word: 0, meaning: parsed.rows[0].length > 1 ? 1 : null };
       setRows(parsed.rows);
+      setFileWarnings(parsed.warnings ?? []);
+      setEdits({});
+      setExcluded(new Set());
       setHasHeader(guessHeader);
       setMapping(initialMapping);
       setStep('mapping');
@@ -78,6 +87,8 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
 
   function toggleHasHeader(next: boolean) {
     setHasHeader(next);
+    setEdits({});
+    setExcluded(new Set());
     if (rows.length === 0) return;
     const guess = next
       ? detectMapping(rows[0])
@@ -88,13 +99,35 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
   const headerRow = hasHeader ? rows[0] : null;
   const dataRows = useMemo(() => (hasHeader ? rows.slice(1) : rows), [rows, hasHeader]);
 
-  const importedRows: ImportedRow[] = useMemo(
-    () => dataRows.map((row, i) => buildImportedRow(row, mapping, defaults, i)),
+  /** Rows as the file gave them. Wholly blank rows are dropped, not counted as errors. */
+  const baseRows: ImportedRow[] = useMemo(
+    () => dataRows.flatMap((row, i) => (row.every((c) => c.trim() === '') ? [] : [buildImportedRow(row, mapping, defaults, i)])),
     [dataRows, mapping, defaults]
   );
+  const importedRows = useMemo(() => baseRows.map((r) => applyRowEdit(r, edits[r.sourceRowIndex])), [baseRows, edits]);
+  /** Rows to review, fixed by what the file gave — a row stays listed while it is being corrected. */
+  const reviewRows = useMemo(() => {
+    const flagged = new Set(baseRows.filter((r) => r.issues.length > 0).map((r) => r.sourceRowIndex));
+    return importedRows.filter((r) => flagged.has(r.sourceRowIndex));
+  }, [baseRows, importedRows]);
+  const openIssues = reviewRows.filter((r) => r.issues.length > 0 && !excluded.has(r.sourceRowIndex)).length;
 
-  const validRows = importedRows.filter((r) => r.valid);
-  const invalidCount = importedRows.length - validRows.length;
+  const validRows = importedRows.filter((r) => r.valid && !excluded.has(r.sourceRowIndex));
+  const excludedCount = importedRows.filter((r) => excluded.has(r.sourceRowIndex)).length;
+  const invalidCount = importedRows.length - validRows.length - excludedCount;
+
+  function editRow(index: number, field: keyof RowEdit, value: string) {
+    setEdits((e) => ({ ...e, [index]: { ...e[index], [field]: value } }));
+  }
+
+  function toggleExcluded(index: number) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
 
   const existingWordSet = useMemo(() => new Set(app.state.words.map((w) => w.word.trim().toLowerCase())), [app.state.words]);
   const duplicateCount = useMemo(() => {
@@ -154,7 +187,7 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
         {step === 'select' && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-slate-500">
-              Excel(.xlsx) 또는 CSV(.csv), Word(.docx) 파일을 업로드하면 단어 목록을 한 번에 불러올 수 있어요. 파일에 "단어 / 뜻 / 예문" 형식의 열이 있으면 자동으로 인식하고, 다르면 직접 매칭할 수 있어요.
+              Excel(.xlsx), CSV(.csv), Word(.docx), PDF(.pdf) 파일을 업로드하면 단어 목록을 한 번에 불러올 수 있어요. 파일에 "단어 / 뜻 / 예문" 형식의 열이 있으면 자동으로 인식하고, 다르면 직접 매칭할 수 있어요. PDF 단어장은 번호·여러 단·줄바꿈된 뜻까지 알아서 정리하고, 이상해 보이는 줄은 가져오기 전에 보여드려요.
             </p>
             <label
               onDragOver={(e) => {
@@ -171,8 +204,8 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
                 <Icon name="plus" className="h-5 w-5" />
               </span>
               <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">파일을 선택하거나 여기로 드래그하세요</span>
-              <span className="text-xs text-slate-400">.xlsx · .csv · .docx</span>
-              <input type="file" accept=".xlsx,.xls,.csv,.docx" className="hidden" onChange={onFileInputChange} />
+              <span className="text-xs text-slate-400">.xlsx · .csv · .docx · .pdf</span>
+              <input type="file" accept=".xlsx,.xls,.csv,.docx,.pdf" className="hidden" onChange={onFileInputChange} />
             </label>
           </div>
         )}
@@ -256,10 +289,76 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
               />
             </label>
 
+            {fileWarnings.length > 0 && (
+              <div className="flex flex-col gap-1 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                {fileWarnings.map((w) => (
+                  <p key={w}>⚠ {w}</p>
+                ))}
+              </div>
+            )}
+
+            {reviewRows.length > 0 && (
+              <div data-testid="import-review" className="rounded-xl border border-amber-200 dark:border-amber-900">
+                <p className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                  확인이 필요한 줄 {reviewRows.length}개
+                  {openIssues === 0 ? ' · 모두 확인했어요' : ` · 남은 ${openIssues}개`}
+                  <span className="block font-normal text-amber-600/80 dark:text-amber-400/80">고쳐서 넣거나, 단어가 아닌 줄은 제외하세요.</span>
+                </p>
+                <div className="flex max-h-64 flex-col divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+                  {reviewRows.map((r) => {
+                    const isExcluded = excluded.has(r.sourceRowIndex);
+                    return (
+                      <div key={r.sourceRowIndex} className={`flex flex-col gap-1.5 px-3 py-2 ${isExcluded ? 'opacity-50' : ''}`}>
+                        <div className="flex gap-1.5">
+                          <input
+                            className="input min-w-0 flex-1 py-1.5 text-xs"
+                            aria-label="단어"
+                            placeholder="단어"
+                            value={r.word}
+                            disabled={isExcluded}
+                            onChange={(e) => editRow(r.sourceRowIndex, 'word', e.target.value)}
+                          />
+                          <input
+                            className="input min-w-0 flex-[1.4] py-1.5 text-xs"
+                            aria-label="뜻"
+                            placeholder="뜻"
+                            value={r.meaning}
+                            disabled={isExcluded}
+                            onChange={(e) => editRow(r.sourceRowIndex, 'meaning', e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            aria-label="단어와 뜻 바꾸기"
+                            title="단어와 뜻 바꾸기"
+                            disabled={isExcluded}
+                            onClick={() => setEdits((e) => ({ ...e, [r.sourceRowIndex]: { word: r.meaning, meaning: r.word } }))}
+                            className="shrink-0 rounded-lg px-1.5 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
+                          >
+                            ⇄
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleExcluded(r.sourceRowIndex)}
+                            className="shrink-0 rounded-lg px-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            {isExcluded ? '되살리기' : '제외'}
+                          </button>
+                        </div>
+                        <p className={`text-[11px] ${isExcluded ? 'text-slate-400' : r.issues.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600'}`}>
+                          {isExcluded ? '가져오지 않아요' : r.issues.length > 0 ? r.issues.join(' · ') : '✓ 확인됨'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div>
               <p className="mb-2 text-xs font-semibold text-slate-500">
                 미리보기 · 총 {importedRows.length}행 · 유효 {validRows.length}개
                 {invalidCount > 0 && <span className="text-rose-500"> · 형식 오류 {invalidCount}개</span>}
+                {excludedCount > 0 && <span> · 제외 {excludedCount}개</span>}
                 {skipDuplicates && duplicateCount > 0 && <span className="text-amber-500"> · 중복 {duplicateCount}개 건너뜀</span>}
               </p>
               <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -273,7 +372,15 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
                   </thead>
                   <tbody>
                     {importedRows.slice(0, 30).map((r, i) => (
-                      <tr key={i} className={`border-t border-slate-100 dark:border-slate-800 ${!r.valid ? 'bg-rose-50 dark:bg-rose-950/40' : ''}`}>
+                      <tr key={i} className={`border-t border-slate-100 dark:border-slate-800 ${
+                          excluded.has(r.sourceRowIndex)
+                            ? 'opacity-40'
+                            : !r.valid
+                              ? 'bg-rose-50 dark:bg-rose-950/40'
+                              : r.issues.length > 0
+                                ? 'bg-amber-50 dark:bg-amber-950/30'
+                                : ''
+                        }`}>
                         <td className="px-2 py-1.5 font-medium text-slate-700 dark:text-slate-200">{r.word || <em className="text-rose-400">누락</em>}</td>
                         <td className="px-2 py-1.5 text-slate-500">{r.meaning || <em className="text-rose-400">누락</em>}</td>
                         <td className="max-w-[120px] truncate px-2 py-1.5 text-slate-400">{r.example}</td>

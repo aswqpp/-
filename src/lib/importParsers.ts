@@ -1,5 +1,9 @@
+import { splitAtHangul } from './pdfVocab';
+
 export interface ParsedTable {
   rows: string[][];
+  /** Problems found in the file as a whole, shown above the preview. */
+  warnings?: string[];
 }
 
 function cellToString(v: unknown): string {
@@ -94,6 +98,9 @@ async function parseDocx(file: File): Promise<string[][]> {
     if (line.includes('\t')) return line.split('\t').map((c) => c.trim());
     const sepMatch = line.split(/\s*[-–—:|]\s+|,\s+/);
     if (sepMatch.length > 1) return sepMatch.map((c) => c.trim());
+    // "apple 사과", "1. apple 사과": cut where the Korean starts.
+    const [word, meaning] = splitAtHangul(line.replace(/^\(?\d{1,4}[.)]?\s+/, ''));
+    if (word && meaning) return [word, meaning];
     return [line];
   });
   return normalizeRows(rows);
@@ -113,5 +120,12 @@ export async function parseImportFile(file: File): Promise<ParsedTable> {
     return { rows: await parseDocx(file) };
   }
 
-  throw new Error('지원하지 않는 파일 형식이에요. .xlsx, .csv, .docx 파일을 업로드해주세요.');
+  if (name.endsWith('.pdf')) {
+    const { parsePdfVocab } = await import('./pdfImport');
+    const { entries, warnings } = await parsePdfVocab(file);
+    const rows = [['번호', '단어', '뜻', '발음기호'], ...entries.map((e) => [e.number === null ? '' : String(e.number), e.word, e.meaning, e.phonetic])];
+    return { rows: entries.length > 0 ? rows : [], warnings };
+  }
+
+  throw new Error('지원하지 않는 파일 형식이에요. .xlsx, .csv, .docx, .pdf 파일을 업로드해주세요.');
 }

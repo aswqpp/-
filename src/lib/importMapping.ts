@@ -1,4 +1,5 @@
 import type { ExamType } from '../types';
+import { hasHangul } from './pdfVocab';
 
 export type MappableField =
   | 'word'
@@ -95,7 +96,36 @@ export interface ImportedRow {
   category: string;
   examType: ExamType;
   valid: boolean;
+  /** Why this row is worth a second look before importing; empty when it looks fine. */
+  issues: string[];
   sourceRowIndex: number;
+}
+
+/** A hand correction made in the import preview. */
+export interface RowEdit {
+  word?: string;
+  meaning?: string;
+}
+
+/** What looks off about a word/meaning pair. A word list is English words with Korean meanings. */
+export function rowIssues(word: string, meaning: string): string[] {
+  const issues: string[] = [];
+  if (!word) issues.push('단어가 비어 있어요');
+  if (!meaning) issues.push('뜻이 비어 있어요');
+  if (word && hasHangul(word)) issues.push('단어에 한글이 섞여 있어요');
+  else if (word && !/[a-z]/i.test(word)) issues.push('단어에 영어가 없어요');
+  if (word && /\d/.test(word)) issues.push('단어에 숫자가 있어요');
+  if (word.length > 40) issues.push('단어가 너무 길어요 (두 줄이 합쳐졌을 수 있어요)');
+  if (meaning && !hasHangul(meaning)) issues.push('뜻에 한글이 없어요');
+  return issues;
+}
+
+/** Applies a preview correction and re-checks the row. */
+export function applyRowEdit(row: ImportedRow, edit: RowEdit | undefined): ImportedRow {
+  if (!edit) return row;
+  const word = (edit.word ?? row.word).trim();
+  const meaning = (edit.meaning ?? row.meaning).trim();
+  return { ...row, word, meaning, valid: word !== '' && meaning !== '', issues: rowIssues(word, meaning) };
 }
 
 export function cell(row: string[], colIndex: number | null): string {
@@ -118,6 +148,7 @@ export function buildImportedRow(row: string[], mapping: FieldMapping, defaults:
     category: category || defaults.category,
     examType: mapping.examType !== null ? normalizeExamType(rawExamType, defaults.examType) : defaults.examType,
     valid: word !== '' && meaning !== '',
+    issues: rowIssues(word, meaning),
     sourceRowIndex,
   };
 }
