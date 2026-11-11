@@ -98,3 +98,35 @@ export async function lookupWord(word: string, signal?: AbortSignal): Promise<Di
 
   return variants.filter((v) => v.phonetic || v.definitions.length > 0);
 }
+
+/** The first 발음기호 the dictionary has for a word, or '' when it has none or the lookup fails. */
+export async function lookupPhonetic(word: string, timeoutMs = 8000): Promise<string> {
+  try {
+    const variants = await lookupWord(word, AbortSignal.timeout(timeoutMs));
+    return variants.find((v) => v.phonetic)?.phonetic ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** Fills 발음기호 for many words with a few lookups in flight at a time. Failures come back as ''. */
+export async function lookupPhonetics(
+  words: string[],
+  onProgress?: (done: number, total: number) => void,
+  concurrency = 4
+): Promise<Map<string, string>> {
+  const unique = [...new Set(words.map((w) => w.trim().toLowerCase()).filter((w) => w !== ''))];
+  const result = new Map<string, string>();
+  let next = 0;
+  let done = 0;
+  async function worker() {
+    while (next < unique.length) {
+      const w = unique[next++];
+      result.set(w, await lookupPhonetic(w));
+      done++;
+      onProgress?.(done, unique.length);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, unique.length) }, worker));
+  return result;
+}

@@ -127,6 +127,9 @@ export function WordFormModal({
       setSplitMeanings(found.map(() => ''));
       setSelectedVariant(0);
       setLookupStatus('done');
+      // 발음기호 is filled in by default from the first result; one typed by hand is kept.
+      const firstPhonetic = found.find((v) => v.phonetic)?.phonetic ?? '';
+      if (firstPhonetic) setForm((f) => (f.phonetic.trim() ? f : { ...f, phonetic: firstPhonetic }));
 
       found.forEach((variant, i) => {
         suggestKoreanMeanings(word, variant.definitions, AbortSignal.timeout(LOOKUP_TIMEOUT_MS))

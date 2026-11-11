@@ -89,7 +89,7 @@ export default function QuizPage({
   const dueWords = due.queue;
 
   const [phase, setPhase] = useState<Phase>('setup');
-  const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice', 'listening']);
+  const [selectedTypes, setSelectedTypes] = useState<QuizType[]>(['multiple-choice']);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [spellingInput, setSpellingInput] = useState('');

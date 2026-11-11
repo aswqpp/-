@@ -5,6 +5,7 @@ import { Button, Badge } from './ui';
 import { Icon } from './Icon';
 import { Select } from './Select';
 import { parseImportFile } from '../lib/importParsers';
+import { lookupPhonetics } from '../lib/dictionaryApi';
 import {
   FIELD_LABELS,
   FIELD_ORDER,
@@ -19,7 +20,7 @@ import {
   type MappableField,
 } from '../lib/importMapping';
 
-type Step = 'select' | 'parsing' | 'mapping' | 'result' | 'error';
+type Step = 'select' | 'parsing' | 'mapping' | 'phonetics' | 'result' | 'error';
 
 const EXAM_TYPES: ExamType[] = ['TOEIC', 'TOEFL', '수능', '공무원', '일상회화', '기타'];
 const OPTIONAL_DEFAULTABLE: MappableField[] = ['category', 'examType'];
@@ -32,6 +33,9 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
   const [mapping, setMapping] = useState<FieldMapping>(() => detectMapping([]));
   const [defaults, setDefaults] = useState<ImportDefaults>({ category: '가져온 단어', examType: '기타' });
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+  /** On by default: rows whose file has no 발음기호 get one from the dictionary. */
+  const [fillPhonetics, setFillPhonetics] = useState(true);
+  const [phoneticProgress, setPhoneticProgress] = useState({ done: 0, total: 0 });
   const [errorMsg, setErrorMsg] = useState('');
   const [result, setResult] = useState<{ added: number; skippedDuplicates: number; invalid: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -106,10 +110,17 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
 
   const requiredMapped = REQUIRED_FIELDS.every((f) => mapping[f] !== null);
 
-  function runImport() {
+  async function runImport() {
+    let phonetics = new Map<string, string>();
+    const missing = fillPhonetics ? validRows.filter((r) => r.phonetic === '').map((r) => r.word) : [];
+    if (missing.length > 0) {
+      setPhoneticProgress({ done: 0, total: 0 });
+      setStep('phonetics');
+      phonetics = await lookupPhonetics(missing, (done, total) => setPhoneticProgress({ done, total }));
+    }
     const rowsToAdd: Omit<Word, 'id' | 'createdAt' | 'srs'>[] = validRows.map((r) => ({
       word: r.word,
-      phonetic: r.phonetic,
+      phonetic: r.phonetic || phonetics.get(r.word.trim().toLowerCase()) || '',
       meaning: r.meaning,
       example: r.example,
       exampleTranslation: r.exampleTranslation,
@@ -232,6 +243,19 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
               />
             </label>
 
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-800">
+              <span className="text-slate-600 dark:text-slate-300">
+                발음기호 자동으로 채우기
+                <span className="block text-[11px] text-slate-400">파일에 발음기호가 없는 단어만 사전에서 찾아 넣어요</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={fillPhonetics}
+                onChange={(e) => setFillPhonetics(e.target.checked)}
+                className="h-5 w-5 accent-indigo-600"
+              />
+            </label>
+
             <div>
               <p className="mb-2 text-xs font-semibold text-slate-500">
                 미리보기 · 총 {importedRows.length}행 · 유효 {validRows.length}개
@@ -270,6 +294,16 @@ export function BulkImportModal({ app, onClose }: { app: UseAppState; onClose: (
               </Button>
             </div>
             {!requiredMapped && <p className="text-center text-xs text-rose-500">단어와 뜻 열을 매칭해주세요.</p>}
+          </div>
+        )}
+
+        {step === 'phonetics' && (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <Icon name="refresh" className="h-8 w-8 animate-spin text-indigo-500" />
+            <p className="text-sm text-slate-500">
+              발음기호를 찾고 있어요...
+              {phoneticProgress.total > 0 && ` (${phoneticProgress.done}/${phoneticProgress.total})`}
+            </p>
           </div>
         )}
 
