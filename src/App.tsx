@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { PendingReview, Screen } from './types';
 import { useAppState } from './hooks/useAppState';
+import { usePhoneticBackfill } from './hooks/usePhoneticBackfill';
 import { Icon, type IconName } from './components/Icon';
 import { dueQueueFor } from './lib/scheduling';
 import HomePage from './pages/HomePage';
@@ -23,6 +24,7 @@ const NAV_ITEMS: { screen: Screen; label: string; icon: IconName }[] = [
 
 export default function App() {
   const app = useAppState();
+  usePhoneticBackfill(app.state.words, app.fillPhonetics);
   const [screen, setScreen] = useState<Screen>('home');
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);

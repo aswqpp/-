@@ -99,14 +99,22 @@ export async function lookupWord(word: string, signal?: AbortSignal): Promise<Di
   return variants.filter((v) => v.phonetic || v.definitions.length > 0);
 }
 
-/** The first 발음기호 the dictionary has for a word, or '' when it has none or the lookup fails. */
-export async function lookupPhonetic(word: string, timeoutMs = 8000): Promise<string> {
+/**
+ * The first 발음기호 the dictionary has for a word: '' when it has none, null when the
+ * lookup itself failed (offline, timeout) and is worth trying again later.
+ */
+export async function tryLookupPhonetic(word: string, timeoutMs = 8000): Promise<string | null> {
   try {
     const variants = await lookupWord(word, AbortSignal.timeout(timeoutMs));
     return variants.find((v) => v.phonetic)?.phonetic ?? '';
   } catch {
-    return '';
+    return null;
   }
+}
+
+/** The first 발음기호 the dictionary has for a word, or '' when it has none or the lookup fails. */
+export async function lookupPhonetic(word: string, timeoutMs = 8000): Promise<string> {
+  return (await tryLookupPhonetic(word, timeoutMs)) ?? '';
 }
 
 /** Fills 발음기호 for many words with a few lookups in flight at a time. Failures come back as ''. */

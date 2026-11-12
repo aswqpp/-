@@ -161,6 +161,22 @@ export function useAppState() {
     }));
   }, []);
 
+  /** Sets 발음기호 on words that have none, by lower-cased spelling. A 발음기호 already there is never replaced. */
+  const fillPhonetics = useCallback((found: Map<string, string>) => {
+    if (found.size === 0) return;
+    setState((s) => {
+      let changed = false;
+      const words = s.words.map((w) => {
+        if (w.phonetic.trim()) return w;
+        const phonetic = found.get(w.word.trim().toLowerCase());
+        if (!phonetic) return w;
+        changed = true;
+        return { ...w, phonetic };
+      });
+      return changed ? { ...s, words } : s;
+    });
+  }, []);
+
   /**
    * Pushes a word's next review out by `days` and nothing else.
    *
@@ -306,6 +322,7 @@ export function useAppState() {
     addWord,
     addWordsBulk,
     updateWord,
+    fillPhonetics,
     restWord,
     deleteWord,
     deleteWords,
