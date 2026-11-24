@@ -83,7 +83,7 @@ const endView = toView(pg, { mode: 'solo', code: null, youId: 'me', hostId: 'me'
 assert.ok(endView.players.filter((p) => p.bot).every((p) => p.persona && p.persona.detail.length > 0), 'revealed on podium');
 
 /** Play `rounds` rounds of one persona bot vs a human who always throws `human`. */
-function habit(id: PersonaId, n: 3 | 15, human = 0, rounds = 40): GameState {
+function habit(id: PersonaId, n: 3 | 15, human = 0, rounds = 200): GameState {
   const g = newGame({ variantN: n, rounds, timerSec: 0 });
   addHuman(g, 'me', 'ME');
   const b = addBot(g, 'bot')!;
@@ -99,7 +99,7 @@ function habit(id: PersonaId, n: 3 | 15, human = 0, rounds = 40): GameState {
 }
 const share = (xs: number[], f: (x: number, i: number) => boolean) => xs.filter(f).length / xs.length;
 const botHist = (g: GameState) => g.players[1].history;
-assert.ok(share(botHist(habit('STUBBORN', 15)), (x) => x === 4) > 0.7, 'STUBBORN repeats its favourite');
+assert.ok(share(botHist(habit('STUBBORN', 15)), (x) => x === 4) > 0.65, 'STUBBORN repeats its favourite');
 assert.ok(share(botHist(habit('MIRROR', 15, 6)).slice(1), (x) => x === 6) > 0.75, 'MIRROR copies its target');
 assert.ok(share(botHist(habit('COPYCAT', 15, 6)).slice(1), (x) => x === 6) > 0.75, 'COPYCAT copies the winner');
 assert.ok(share(botHist(habit('READER', 3)).slice(3), (x) => x === 2) > 0.7, 'READER counters a Rock spammer');

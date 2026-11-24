@@ -115,7 +115,7 @@ const RPS_101_LIST: RawItem[] = [
   { name: 'Heart', cat: 'People', emoji: '❤️' },
   { name: 'Electricity', cat: 'Nature', emoji: '⚡' },
   { name: 'Lightning', cat: 'Nature', emoji: '🌩️' },
-  { name: 'Meditate', cat: 'Myth', emoji: '🧘' },
+  { name: 'Medusa', cat: 'Myth', emoji: '🗿' },
   { name: 'Power', cat: 'Myth', emoji: '💪' },
   { name: 'Laser', cat: 'War', emoji: '💥' },
   { name: 'Nuke', cat: 'War', emoji: '☢️' },
