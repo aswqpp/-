@@ -1,0 +1,22 @@
+{
+ "/assets/index-BAnSZKbR.js": {
+  "hash": "119a2da0163d1b0253c6c86eed6e4fb9",
+  "size": 50423,
+  "type": "application/javascript"
+ },
+ "/assets/index-CW7y8ddw.css": {
+  "hash": "80fd9efcb41ad62ec9850b24b3a5e097",
+  "size": 35473,
+  "type": "text/css"
+ },
+ "/favicon.svg": {
+  "hash": "1ad3ca087228777755451ec7f755ea62",
+  "size": 481,
+  "type": "image/svg+xml"
+ },
+ "/index.html": {
+  "hash": "988eb7decf52d7795254732838b5013d",
+  "size": 29425,
+  "type": "text/html"
+ }
+}
