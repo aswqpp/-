@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F5FBF5" />
+  <meta name="description" content="Circular rock-paper-scissors from RPS-3 to RPS-101. Play solo against bots or open a room code for friends." />
+  <title>RPS ARENA</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+  <!-- Google Fonts: Space Grotesk + IBM Plex Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/assets/index-xW2qypP1.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-D5ehIjRI.css">
+</head>
+<body class="selection:bg-deep selection:text-stock">
+
+  <!-- Subtle Grain Overlay -->
+  <div class="riso-grain" aria-hidden="true"></div>
+
+  <!-- Toast Stack -->
+  <div id="toast-box" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- =========================================================================
+       SLIM 52PX SINGLE-ROW TOP NAVIGATION BAR
+       ========================================================================= -->
+  <header class="sticky top-0 z-40 h-[52px] bg-stock border-b-[1.5px] border-ink">
+    <div class="max-w-[1360px] h-full mx-auto px-3 sm:px-5 flex justify-between sm:grid sm:grid-cols-3 items-center gap-2">
+      <!-- Left: Brand + Variant Pill -->
+      <div class="flex items-center gap-2 min-w-0">
+        <button id="brand-btn" type="button" class="font-sans font-bold text-[15px] tracking-tight text-ink hover:text-deep transition whitespace-nowrap">
+          RPS ARENA
+        </button>
+        <span id="nav-variant-pill" class="hidden sm:inline-block font-mono text-[11px] font-semibold px-2 py-0.5 bg-paper border-[1.5px] border-ink rounded-[3px] shrink-0">
+          RPS-15
+        </span>
+      </div>
+
+      <!-- Center: Segmented Tabs [PLAY | RING] -->
+      <div class="flex justify-center">
+        <div class="inline-flex border-[1.5px] border-ink rounded-[4px] overflow-hidden shadow-[2px_2px_0_#1A2418]">
+          <button id="tab-play" type="button" class="h-8 px-4 font-mono text-[11px] font-bold uppercase tracking-wider transition">
+            PLAY
+          </button>
+          <button id="tab-ring" type="button" class="h-8 px-4 font-mono text-[11px] font-bold uppercase tracking-wider border-l-[1.5px] border-ink transition">
+            RING
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Room Code Badge / Standings Toggle (when in match) -->
+      <div class="flex items-center justify-end gap-2">
+        <span id="nav-room-badge" class="hidden sm:inline-flex font-mono text-[11px] font-semibold px-2 py-1 bg-paper border-[1.5px] border-ink rounded-[3px]">
+          ROOM K7X2
+        </span>
+        <div id="nav-standings-wrap" class="hidden relative">
+          <button id="nav-standings-btn" type="button" class="btn h-8 px-2.5 bg-stock font-mono text-[11px] font-bold uppercase">
+            STANDINGS
+          </button>
+          <!-- Standings Drawer Popover -->
+          <div id="nav-standings-drawer" class="hidden absolute right-0 top-10 z-50 w-60 card-stock p-3">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-ink/20">
+              <span class="font-mono text-[10px] font-bold uppercase text-deep">STANDINGS</span>
+              <span id="drawer-round-tag" class="font-mono text-[10px] font-semibold text-ink/70">R1 / 5</span>
+            </div>
+            <div id="drawer-standings-list" class="space-y-1.5"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Connection banner (ROOM mode only) -->
+  <div id="net-banner" class="hidden sticky top-[52px] z-30 bg-loss text-stock border-b-[1.5px] border-ink px-4 py-1.5 text-center font-mono text-[11px] font-bold uppercase tracking-wider"></div>
+
+  <!-- =========================================================================
+       SCREEN 1: LOBBY — SOLO (vs bots) or ROOM (create / join by code)
+       ========================================================================= -->
+  <main id="screen-lobby" class="max-w-[560px] mx-auto px-4 py-10 sm:py-14">
+    <div class="card-stock p-6 sm:p-8 space-y-6">
+
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-[1.5px] border-ink">
+        <h1 class="font-sans font-bold text-lg tracking-tight uppercase">MATCH SETUP</h1>
+        <div class="inline-flex border-[1.5px] border-ink rounded-[4px] overflow-hidden shadow-[2px_2px_0_#1A2418]">
+          <button id="mode-solo" type="button" class="h-8 px-4 font-mono text-[11px] font-bold uppercase tracking-wider transition">SOLO</button>
+          <button id="mode-room" type="button" class="h-8 px-4 font-mono text-[11px] font-bold uppercase tracking-wider border-l-[1.5px] border-ink transition">ROOM</button>
+        </div>
+      </div>
+
+      <!-- PLAYER NAME (both modes) -->
+      <div>
+        <label for="input-player-name" class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">PLAYER NAME</label>
+        <input
+          id="input-player-name"
+          type="text"
+          maxlength="12"
+          autocomplete="nickname"
+          placeholder="YOU"
+          class="w-full h-10 px-3 bg-white border-[1.5px] border-ink rounded-[4px] font-sans font-semibold text-sm uppercase tracking-wide focus:outline-none focus:bg-paper"
+        />
+      </div>
+
+      <!-- SOLO PANEL -->
+      <div id="panel-solo" class="space-y-6">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-[11px] font-bold uppercase text-ink/75">VARIANT</span>
+            <span id="lobby-variant-badge" class="font-mono text-[11px] font-semibold text-deep">RPS-15</span>
+          </div>
+          <div id="lobby-variants" class="grid grid-cols-3 gap-2.5"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">BOTS</span>
+            <div id="lobby-bots" class="grid grid-cols-5 gap-1.5"></div>
+          </div>
+          <div>
+            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">ROUNDS</span>
+            <div id="lobby-rounds" class="grid grid-cols-3 gap-1.5"></div>
+          </div>
+          <div>
+            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">TIMER</span>
+            <div id="lobby-timer" class="grid grid-cols-4 gap-1.5"></div>
+          </div>
+          <div class="flex items-end">
+            <p class="font-mono text-[10px] leading-relaxed text-ink/65 uppercase border-[1.5px] border-dashed border-ink/30 rounded-[4px] p-2.5">
+              EVERY BOT GETS A SECRET PERSONALITY EACH MATCH — STUBBORN, COPYCAT, CLOCKWORK… SPOT THE HABIT TO BEAT IT. REVEALED AT THE END.
+            </p>
+          </div>
+        </div>
+
+        <button id="btn-start-solo" type="button" class="btn w-full h-12 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
+          START SOLO MATCH
+        </button>
+      </div>
+
+      <!-- ROOM PANEL -->
+      <div id="panel-room" class="hidden space-y-5">
+        <div class="space-y-2">
+          <span class="block font-mono text-[11px] font-bold uppercase text-ink/75">HOST A ROOM</span>
+          <button id="btn-create-room" type="button" class="btn w-full h-12 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
+            CREATE ROOM
+          </button>
+          <p class="font-mono text-[10px] text-ink/60 uppercase">YOU GET A 4-LETTER CODE TO SHARE · FILL SEATS WITH SECRET-PERSONALITY BOTS</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="flex-1 border-t border-ink/25"></div>
+          <span class="font-mono text-[10px] font-bold text-ink/60">OR</span>
+          <div class="flex-1 border-t border-ink/25"></div>
+        </div>
+
+        <form id="form-join" class="space-y-2">
+          <label for="input-room-code" class="block font-mono text-[11px] font-bold uppercase text-ink/75">JOIN WITH CODE</label>
+          <div class="flex gap-2">
+            <input
+              id="input-room-code"
+              type="text"
+              maxlength="4"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="K7X2"
+              class="flex-1 min-w-0 h-11 px-3 bg-white border-[1.5px] border-ink rounded-[4px] font-mono font-bold text-lg uppercase tracking-[0.35em] focus:outline-none focus:bg-paper"
+            />
+            <button id="btn-join-room" type="submit" class="btn h-11 px-5 bg-tint text-ink font-sans font-bold text-sm uppercase tracking-wider shrink-0">
+              JOIN
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <button id="btn-lobby-ring" type="button" class="btn w-full h-10 bg-tint text-ink font-mono text-xs font-bold uppercase tracking-wider">
+        RING ATLAS →
+      </button>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       SCREEN 1B: ROOM LOBBY (waiting room for a room code)
+       ========================================================================= -->
+  <main id="screen-room" class="hidden max-w-[640px] mx-auto px-4 py-10 sm:py-14">
+    <div class="card-stock p-6 sm:p-8 space-y-6">
+
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-[1.5px] border-ink">
+        <div>
+          <h1 class="font-sans font-bold text-lg tracking-tight uppercase">ROOM</h1>
+          <div id="room-status" class="font-mono text-[10px] font-bold uppercase text-deep mt-0.5">CONNECTING…</div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span id="room-code-chip" class="h-9 px-3 inline-flex items-center bg-paper border-[1.5px] border-ink rounded-[4px] font-mono text-base font-bold tracking-[0.3em] uppercase">----</span>
+          <button id="btn-copy-code" type="button" class="btn h-9 px-2.5 bg-tint font-mono text-[11px] font-bold uppercase">COPY</button>
+          <button id="btn-copy-link" type="button" class="btn h-9 px-2.5 bg-stock font-mono text-[11px] font-bold uppercase">LINK</button>
+        </div>
+      </div>
+
+      <!-- SEATS -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-mono text-[11px] font-bold uppercase text-ink/75">PLAYERS</span>
+          <span id="room-seat-count" class="font-mono text-[11px] font-semibold text-deep">0 / 6</span>
+        </div>
+        <div id="room-seats" class="space-y-1.5"></div>
+        <div id="room-add-bots" class="hidden mt-2.5"></div>
+      </div>
+
+      <!-- CONFIG (host edits, everyone sees) -->
+      <div class="space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-[11px] font-bold uppercase text-ink/75">VARIANT</span>
+            <span id="room-host-note" class="font-mono text-[10px] font-semibold text-ink/60 uppercase"></span>
+          </div>
+          <div id="room-variants" class="grid grid-cols-3 gap-2.5"></div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">ROUNDS</span>
+            <div id="room-rounds" class="grid grid-cols-3 gap-1.5"></div>
+          </div>
+          <div>
+            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">TIMER</span>
+            <div id="room-timer" class="grid grid-cols-4 gap-1.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-1 space-y-2.5">
+        <button id="btn-room-start" type="button" class="btn w-full h-12 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
+          START MATCH
+        </button>
+        <button id="btn-room-leave" type="button" class="btn w-full h-10 bg-stock text-ink font-mono text-xs font-bold uppercase tracking-wider">
+          LEAVE ROOM
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       SCREEN 2: MATCH PICKING SCREEN (PLAY TAB - PICK PHASE)
+       ========================================================================= -->
+  <section id="screen-pick" class="hidden max-w-[1360px] mx-auto px-3 sm:px-5 pt-5 pb-24 lg:pb-10">
+
+    <!-- Compact Top Match HUD -->
+    <div class="card-stock px-3.5 py-2.5 mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span id="hud-round" class="font-mono text-xs font-bold px-2.5 py-1 bg-paper border-[1.5px] border-ink rounded-[3px]">
+          R1 / 5
+        </span>
+        <span id="hud-timer" class="font-mono text-xs font-bold px-2.5 py-1 bg-stock border-[1.5px] border-ink rounded-[3px]">
+          25s
+        </span>
+      </div>
+
+      <!-- Player Lock Status Dots -->
+      <div id="hud-lock-dots" class="flex flex-wrap items-center gap-2.5"></div>
+
+      <button id="hud-standings-btn" type="button" class="btn h-8 px-3 bg-tint font-mono text-[11px] font-bold uppercase">
+        STANDINGS
+      </button>
+    </div>
+
+    <!-- Main 2-Column Layout: Left Grid + Right Sticky Inspector -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+      <!-- LEFT AREA: Controls + Responsive Card Grid -->
+      <div class="lg:col-span-8 space-y-4">
+        <!-- Search + W/L Overlay Toggle -->
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+          <div class="relative flex-1 min-w-[180px] max-w-xs">
+            <input
+              id="pick-search"
+              type="text"
+              placeholder="SEARCH..."
+              class="w-full h-9 pl-3 pr-8 bg-stock border-[1.5px] border-ink rounded-[4px] font-mono text-xs font-medium uppercase focus:outline-none focus:bg-white"
+            />
+            <button id="pick-search-clear" type="button" class="hidden absolute right-2 top-1/2 -translate-y-1/2 font-mono text-xs font-bold px-1">
+              ×
+            </button>
+          </div>
+
+          <button id="btn-wl-toggle" type="button" class="btn h-9 px-3 font-mono text-[11px] font-bold uppercase flex items-center gap-2">
+            <span id="wl-toggle-dot" class="w-2.5 h-2.5 rounded-full border border-ink"></span>
+            <span>W/L OVERLAY</span>
+          </button>
+        </div>
+
+        <!-- Category Filter Tabs (Shown for RPS-15 / 25 / 101) -->
+        <div id="pick-categories" class="hidden flex flex-wrap gap-1.5"></div>
+
+        <!-- Responsive Card Grid -->
+        <div id="pick-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5"></div>
+
+        <!-- ROUND LOG -->
+        <div id="pick-history-wrap" class="hidden card-stock p-4 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-ink/20">
+            <span class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</span>
+            <span class="font-mono text-[10px] font-semibold uppercase text-ink/55">SPOT THE BOTS’ HABITS</span>
+          </div>
+          <div id="pick-history" class="overflow-x-auto"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT STICKY INSPECTOR PANEL -->
+      <aside class="lg:col-span-4 lg:sticky lg:top-[68px]">
+        <div class="card-stock p-4 sm:p-5 space-y-4">
+          <div class="flex items-center justify-between pb-2.5 border-b-[1.5px] border-ink">
+            <span class="font-mono text-[11px] font-bold uppercase text-deep">INSPECTOR</span>
+            <span id="insp-index" class="font-mono text-[11px] font-semibold text-ink/70">--</span>
+          </div>
+
+          <!-- Selected Card Preview -->
+          <div class="flex items-center gap-3.5">
+            <div id="insp-icon" class="w-16 h-16 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-4xl shrink-0">
+              ·
+            </div>
+            <div class="min-w-0">
+              <div id="insp-name" class="font-sans font-bold text-lg uppercase truncate">SELECT CARD</div>
+              <div id="insp-split" class="font-mono text-[11px] font-semibold text-deep mt-0.5">MANUAL PICK</div>
+            </div>
+          </div>
+
+          <!-- Compact Ring Position Bar -->
+          <div>
+            <div class="flex items-center justify-between font-mono text-[10px] font-semibold uppercase mb-1 text-ink/70">
+              <span>RING POS</span>
+              <span id="insp-pos-label">--</span>
+            </div>
+            <div class="w-full h-2.5 bg-paper border-[1.5px] border-ink rounded-[2px] overflow-hidden relative">
+              <div id="insp-pos-fill" class="h-full bg-deep transition-all duration-150" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Quick BEATS / LOSES Preview Chips -->
+          <div id="insp-matchups" class="space-y-2.5">
+            <div class="grid grid-cols-2 gap-2">
+              <button id="insp-tab-beats" type="button" class="btn h-8 font-mono text-[11px] font-bold uppercase">
+                BEATS
+              </button>
+              <button id="insp-tab-loses" type="button" class="btn h-8 font-mono text-[11px] font-bold uppercase">
+                LOSES
+              </button>
+            </div>
+            <div id="insp-chips" class="max-h-[210px] overflow-y-auto flex flex-wrap gap-1.5 content-start pr-1"></div>
+          </div>
+
+          <!-- Big Tactile LOCK MOVE Button (Desktop) -->
+          <button id="btn-lock-desktop" type="button" disabled class="btn w-full h-12 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
+            LOCK MOVE
+          </button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Mobile Sticky Bottom Lock Bar -->
+    <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-stock border-t-[1.5px] border-ink px-4 h-[62px] flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div id="mob-lock-icon" class="w-10 h-10 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-xl shrink-0">
+          ·
+        </div>
+        <div class="min-w-0">
+          <div id="mob-lock-name" class="font-sans font-bold text-sm uppercase truncate">SELECT CARD</div>
+          <div id="mob-lock-meta" class="font-mono text-[10px] font-semibold text-deep">MANUAL PICK</div>
+        </div>
+      </div>
+      <button id="btn-lock-mobile" type="button" disabled class="btn h-10 px-5 bg-deep text-stock font-sans font-bold text-xs uppercase tracking-wider shrink-0">
+        LOCK MOVE
+      </button>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       SCREEN 3: ANIMATED BATTLE CLASH STAGE (PLAY TAB - ROUND REVEAL)
+       ========================================================================= -->
+  <section id="screen-reveal" class="hidden max-w-[1040px] mx-auto px-3 sm:px-5 py-6 sm:py-8 space-y-5">
+
+    <!-- Top Reveal Bar: Round Tag + Bout Counter + SKIP / REPLAY -->
+    <div class="flex flex-wrap items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2.5">
+        <span id="rev-round-tag" class="font-mono text-xs font-bold px-2.5 py-1 bg-stock border-[1.5px] border-ink rounded-[3px]">
+          R1 / 5
+        </span>
+        <span id="rev-bout-counter" class="font-mono text-xs font-bold px-2.5 py-1 bg-paper border-[1.5px] border-ink rounded-[3px] text-deep">
+          BOUT 1 / 3
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-skip-bouts" type="button" class="btn h-8 px-3 bg-tint font-mono text-[11px] font-bold uppercase">
+          SKIP
+        </button>
+        <button id="btn-replay-bout" type="button" class="btn h-8 px-3 bg-stock font-mono text-[11px] font-bold uppercase">
+          REPLAY
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN CLASH STAGE (Risograph Fight Ring) -->
+    <div id="clash-stage" class="card-stock clash-ring-bg relative overflow-hidden px-4 sm:px-8 py-8 sm:py-10">
+      <!-- Corner Registration Ticks -->
+      <div class="tick-tl"></div>
+      <div class="tick-tr"></div>
+      <div class="tick-bl"></div>
+      <div class="tick-br"></div>
+
+      <!-- Fighters Arena Row -->
+      <div class="relative z-10 grid grid-cols-11 items-center gap-2 sm:gap-4 max-w-[780px] mx-auto min-h-[210px] sm:min-h-[240px]">
+
+        <!-- LEFT FIGHTER CARD -->
+        <div class="col-span-5 flex justify-center">
+          <div id="fighter-left" class="w-full max-w-[230px] card-stock p-4 sm:p-5 flex flex-col items-center text-center relative transition-colors">
+            <!-- Floating +1 Tag -->
+            <span id="left-plus-tag" class="hidden absolute -top-3.5 -right-2.5 px-2 py-0.5 bg-deep text-stock border-[1.5px] border-ink rounded-[3px] font-mono text-xs font-bold shadow-[2px_2px_0_#1A2418]">
+              +1
+            </span>
+            <div class="w-full flex items-center justify-between mb-2">
+              <span id="left-player-name" class="font-mono text-[11px] font-bold uppercase truncate">YOU</span>
+              <span id="left-item-id" class="font-mono text-[10px] font-semibold text-ink/60">#00</span>
+            </div>
+            <div id="left-item-emoji" class="text-5xl sm:text-6xl leading-none my-3 select-none">🪨</div>
+            <div id="left-item-name" class="font-sans font-bold text-sm sm:text-base uppercase tracking-tight truncate w-full">ROCK</div>
+            <!-- Vermilion Strike Line for Loser -->
+            <div id="left-strike" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div class="w-[92%] h-[3px] bg-loss -rotate-12 opacity-80"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CENTER VS + IMPACT FX + VERDICT STAMP -->
+        <div class="col-span-1 flex flex-col items-center justify-center relative">
+          <!-- Expanding Impact Ring -->
+          <div id="impact-ring" class="hidden pointer-events-none absolute w-24 h-24 rounded-full border-[3px] border-loss"></div>
+
+          <!-- Comic Starburst SVG Impact Spark -->
+          <svg id="impact-spark" class="hidden pointer-events-none absolute w-28 h-28 sm:w-36 sm:h-36 z-20" viewBox="0 0 120 120" fill="none">
+            <polygon
+              points="60,4 72,38 108,22 86,52 118,68 82,76 96,112 64,88 46,116 44,82 8,92 34,64 6,42 42,42 36,8 56,34"
+              fill="#F5FBF5"
+              stroke="#C84B31"
+              stroke-width="3"
+              stroke-linejoin="round"
+            />
+            <polygon
+              points="60,22 68,45 92,36 77,56 98,66 74,72 82,94 62,78 49,96 48,74 26,80 42,62 24,48 48,48 44,26 58,42"
+              fill="#C84B31"
+              fill-opacity="0.22"
+            />
+          </svg>
+
+          <!-- Bold Tilted VS Badge -->
+          <div id="center-vs-badge" class="relative z-10 w-11 h-11 sm:w-14 sm:h-14 bg-loss text-stock border-[2px] border-ink rounded-[4px] shadow-[3px_3px_0_#1A2418] flex items-center justify-center font-sans font-bold text-base sm:text-xl tracking-tight -rotate-6 select-none">
+            VS
+          </div>
+
+          <!-- Slamming Verdict Stamp (Overlays center after impact) -->
+          <div id="center-verdict" class="hidden relative z-30 mt-3 px-3 py-1 border-[2px] rounded-[3px] font-mono text-xs sm:text-sm font-bold uppercase tracking-widest shadow-[3px_3px_0_#1A2418] whitespace-nowrap">
+            WIN
+          </div>
+        </div>
+
+        <!-- RIGHT FIGHTER CARD -->
+        <div class="col-span-5 flex justify-center">
+          <div id="fighter-right" class="w-full max-w-[230px] card-stock p-4 sm:p-5 flex flex-col items-center text-center relative transition-colors">
+            <!-- Floating +1 Tag -->
+            <span id="right-plus-tag" class="hidden absolute -top-3.5 -left-2.5 px-2 py-0.5 bg-deep text-stock border-[1.5px] border-ink rounded-[3px] font-mono text-xs font-bold shadow-[2px_2px_0_#1A2418]">
+              +1
+            </span>
+            <div class="w-full flex items-center justify-between mb-2">
+              <span id="right-player-name" class="font-mono text-[11px] font-bold uppercase truncate">KAI</span>
+              <span id="right-item-id" class="font-mono text-[10px] font-semibold text-ink/60">#01</span>
+            </div>
+            <div id="right-item-emoji" class="text-5xl sm:text-6xl leading-none my-3 select-none">✂️</div>
+            <div id="right-item-name" class="font-sans font-bold text-sm sm:text-base uppercase tracking-tight truncate w-full">SCISSORS</div>
+            <!-- Vermilion Strike Line for Loser -->
+            <div id="right-strike" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div class="w-[92%] h-[3px] bg-loss rotate-12 opacity-80"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bold Short Clash Callout Banner -->
+      <div class="relative z-10 mt-6 flex justify-center">
+        <div id="clash-callout" class="px-4 py-1.5 bg-ink text-stock border-[1.5px] border-ink rounded-[3px] font-mono text-xs sm:text-sm font-bold uppercase tracking-wider text-center">
+          ROCK CRUSHES SCISSORS
+        </div>
+      </div>
+    </div>
+
+    <!-- TACTILE BOUT STRIP (MY BOUTS | ALL BOUTS) -->
+    <div class="card-stock p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-ink/20">
+        <span class="font-mono text-[11px] font-bold uppercase text-deep">BOUT STRIP</span>
+        <div class="inline-flex border-[1.5px] border-ink rounded-[3px] overflow-hidden shadow-[2px_2px_0_#1A2418]">
+          <button id="btn-strip-mine" type="button" class="h-7 px-3 font-mono text-[10px] font-bold uppercase transition">
+            MY BOUTS
+          </button>
+          <button id="btn-strip-all" type="button" class="h-7 px-3 font-mono text-[10px] font-bold uppercase border-l-[1.5px] border-ink transition">
+            ALL BOUTS
+          </button>
+        </div>
+      </div>
+
+      <div id="bout-strip-list" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- ROUND LOG -->
+    <div id="rev-history-wrap" class="hidden card-stock p-4 space-y-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-ink/20">
+        <span class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</span>
+        <span class="font-mono text-[10px] font-semibold uppercase text-ink/55">EVERY PICK SO FAR</span>
+      </div>
+      <div id="rev-history" class="overflow-x-auto"></div>
+    </div>
+
+    <!-- COMPACT ROUND STANDINGS + NEXT ROUND ACTION -->
+    <div class="card-stock p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div id="rev-standings-bar" class="flex flex-wrap items-center gap-2"></div>
+
+      <button id="btn-next-round" type="button" class="btn h-11 px-6 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider shrink-0">
+        NEXT ROUND →
+      </button>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       SCREEN 4: FINAL PODIUM SCREEN
+       ========================================================================= -->
+  <section id="screen-podium" class="hidden max-w-[680px] mx-auto px-4 py-10 sm:py-12">
+    <div class="card-stock p-6 sm:p-8 space-y-6">
+      <div class="flex items-center justify-between pb-4 border-b-[1.5px] border-ink">
+        <div>
+          <span class="stamp stamp-win">FINAL RESULT</span>
+          <h2 id="podium-champion" class="font-sans font-bold text-2xl uppercase tracking-tight mt-2">YOU</h2>
+        </div>
+        <span id="podium-meta" class="font-mono text-xs font-bold text-deep">RPS-15 · 5R</span>
+      </div>
+
+      <!-- Tactile 1st / 2nd / 3rd Podium Blocks -->
+      <div id="podium-blocks" class="grid grid-cols-3 gap-3 items-end pt-2"></div>
+
+      <!-- Full W / D / L Table -->
+      <div class="space-y-2">
+        <div class="font-mono text-[11px] font-bold uppercase text-deep">FINAL STANDINGS</div>
+        <div id="podium-table" class="space-y-1.5"></div>
+      </div>
+
+      <!-- Round log -->
+      <div id="podium-history-wrap" class="hidden space-y-2">
+        <div class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</div>
+        <div id="podium-history" class="overflow-x-auto border-[1.5px] border-ink rounded-[4px] bg-stock"></div>
+      </div>
+
+      <!-- Bot personalities, revealed -->
+      <div id="podium-reveal-wrap" class="hidden space-y-2">
+        <div class="font-mono text-[11px] font-bold uppercase text-deep">BOT REVEAL</div>
+        <div id="podium-reveal" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button id="btn-rematch" type="button" class="btn h-11 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
+          REMATCH
+        </button>
+        <button id="btn-podium-lobby" type="button" class="btn h-11 bg-tint text-ink font-sans font-bold text-sm uppercase tracking-wider">
+          LOBBY
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       SCREEN 5: DEDICATED RING PAGE ("RING" TAB ONLY)
+       ========================================================================= -->
+  <section id="screen-ring" class="hidden max-w-[1360px] mx-auto px-3 sm:px-5 py-6 space-y-5">
+    <!-- Top Controls: Variant Switcher Pills + Legend -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div id="ring-variant-pills" class="flex flex-wrap gap-1.5"></div>
+
+      <div class="flex items-center gap-4 font-mono text-[11px] font-semibold">
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-deep border border-ink inline-block"></span>BEATS
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-loss border border-ink inline-block"></span>LOSES
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Ring Diagram + Right Compact Matchup Panel -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div class="lg:col-span-8 card-stock p-4 sm:p-6">
+        <div id="ring-svg-mount" class="w-full max-w-[650px] mx-auto aspect-square"></div>
+      </div>
+
+      <aside class="lg:col-span-4 card-stock p-4 sm:p-5">
+        <div id="ring-side-panel"></div>
+      </aside>
+    </div>
+  </section>
+
+</body>
+</html>

@@ -43,6 +43,8 @@ export interface Player {
   ready: boolean;
   /** Picks of earlier rounds, oldest first (bots read this). */
   history: number[];
+  /** Points scored in each earlier round, aligned with `history`. */
+  roundPts: number[];
 }
 
 export interface GameState {
@@ -79,7 +81,7 @@ export function cleanName(raw: unknown, fallback = 'PLAYER'): string {
 function blankPlayer(id: string, name: string, bot: boolean): Player {
   return {
     id, name, bot, persona: null, score: 0, w: 0, d: 0, l: 0, delta: 0,
-    locked: false, pickId: null, auto: false, ready: false, history: [],
+    locked: false, pickId: null, auto: false, ready: false, history: [], roundPts: [],
   };
 }
 
@@ -116,7 +118,7 @@ export function removePlayer(s: GameState, id: string): void {
 export function startMatch(s: GameState, now: number, rng: Rng = Math.random): void {
   s.round = 0;
   for (const p of s.players) {
-    Object.assign(p, { score: 0, w: 0, d: 0, l: 0, delta: 0, history: [], persona: null });
+    Object.assign(p, { score: 0, w: 0, d: 0, l: 0, delta: 0, history: [], roundPts: [], persona: null });
   }
   dealPersonas(s, rng);
   startRound(s, now);
@@ -182,7 +184,10 @@ export function resolveRound(s: GameState, rng: Rng = Math.random): void {
       b.left.d += 1; b.right.d += 1;
     }
   }
-  for (const p of s.players) p.history.push(p.pickId as number);
+  for (const p of s.players) {
+    p.history.push(p.pickId as number);
+    p.roundPts.push(p.delta);
+  }
   s.phase = 'reveal';
   s.deadline = null;
 }
@@ -205,7 +210,7 @@ export function toLobby(s: GameState): void {
   for (const p of s.players) {
     Object.assign(p, {
       score: 0, w: 0, d: 0, l: 0, delta: 0,
-      locked: false, pickId: null, auto: false, ready: false, history: [], persona: null,
+      locked: false, pickId: null, auto: false, ready: false, history: [], roundPts: [], persona: null,
     });
   }
 }

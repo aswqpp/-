@@ -19,6 +19,9 @@ export interface PlayerView {
   auto: boolean;
   ready: boolean;
   connected: boolean;
+  /** Picks of finished rounds (never the round being picked). */
+  history: number[];
+  roundPts: number[];
 }
 
 export interface GameView {
@@ -72,6 +75,8 @@ export function toView(
       auto: p.auto,
       ready: p.ready,
       connected: p.bot || opts.connected(p),
+      history: [...p.history],
+      roundPts: [...p.roundPts],
     })),
   };
 }

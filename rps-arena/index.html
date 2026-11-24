@@ -291,6 +291,15 @@
 
         <!-- Responsive Card Grid -->
         <div id="pick-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5"></div>
+
+        <!-- ROUND LOG -->
+        <div id="pick-history-wrap" class="hidden card-stock p-4 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-ink/20">
+            <span class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</span>
+            <span class="font-mono text-[10px] font-semibold uppercase text-ink/55">SPOT THE BOTS’ HABITS</span>
+          </div>
+          <div id="pick-history" class="overflow-x-auto"></div>
+        </div>
       </div>
 
       <!-- RIGHT STICKY INSPECTOR PANEL -->
@@ -496,6 +505,15 @@
       <div id="bout-strip-list" class="flex flex-wrap gap-2"></div>
     </div>
 
+    <!-- ROUND LOG -->
+    <div id="rev-history-wrap" class="hidden card-stock p-4 space-y-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-ink/20">
+        <span class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</span>
+        <span class="font-mono text-[10px] font-semibold uppercase text-ink/55">EVERY PICK SO FAR</span>
+      </div>
+      <div id="rev-history" class="overflow-x-auto"></div>
+    </div>
+
     <!-- COMPACT ROUND STANDINGS + NEXT ROUND ACTION -->
     <div class="card-stock p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div id="rev-standings-bar" class="flex flex-wrap items-center gap-2"></div>
@@ -526,6 +544,12 @@
       <div class="space-y-2">
         <div class="font-mono text-[11px] font-bold uppercase text-deep">FINAL STANDINGS</div>
         <div id="podium-table" class="space-y-1.5"></div>
+      </div>
+
+      <!-- Round log -->
+      <div id="podium-history-wrap" class="hidden space-y-2">
+        <div class="font-mono text-[11px] font-bold uppercase text-deep">ROUND LOG</div>
+        <div id="podium-history" class="overflow-x-auto border-[1.5px] border-ink rounded-[4px] bg-stock"></div>
       </div>
 
       <!-- Bot personalities, revealed -->

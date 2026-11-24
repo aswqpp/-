@@ -1,6 +1,7 @@
 /** Final podium + W/D/L table. */
 import { $, esc } from '../dom';
 import { app, isHost, sortedPlayers } from '../store';
+import { renderHistory } from './history';
 
 export function renderPodium(): void {
   const v = app.view;
@@ -43,6 +44,8 @@ export function renderPodium(): void {
       </div>
     </div>
   `).join('');
+
+  renderHistory('podium-history-wrap', 'podium-history');
 
   const bots = v.players.filter((p) => p.bot && p.persona);
   $('podium-reveal-wrap').classList.toggle('hidden', bots.length === 0);

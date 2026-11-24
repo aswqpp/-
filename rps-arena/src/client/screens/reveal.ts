@@ -4,6 +4,7 @@ import { clashCallout, fmtId, type Result } from '../../shared/judge';
 import type { PlayerView } from '../../shared/protocol';
 import { $, esc } from '../dom';
 import { activeVariant, app, clearChoreoTimers, isMe, me, sortedPlayers, ui } from '../store';
+import { renderHistory } from './history';
 
 const flip = (r: Result): Result => (r === 'WIN' ? 'LOSE' : r === 'LOSE' ? 'WIN' : 'DRAW');
 
@@ -33,6 +34,7 @@ export function renderReveal(): void {
   renderNextButton();
   renderBoutStrip();
   renderRevealStandingsBar();
+  renderHistory('rev-history-wrap', 'rev-history');
 }
 
 function renderNextButton(): void {

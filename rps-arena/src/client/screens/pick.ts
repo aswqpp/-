@@ -3,6 +3,7 @@ import { judge, fmtId, matchups } from '../../shared/judge';
 import { CATEGORIES } from '../../shared/variants';
 import { $, esc } from '../dom';
 import { activeVariant, app, isMe, me, ui } from '../store';
+import { renderHistory } from './history';
 
 /** Reset local pick state when a new round starts. */
 export function resetPick(): void {
@@ -24,6 +25,7 @@ export function renderPick(): void {
   renderPickCategories();
   renderPickGrid();
   renderInspector();
+  renderHistory('pick-history-wrap', 'pick-history');
 }
 
 /** Cheap refresh for server updates that only change lock status. */
