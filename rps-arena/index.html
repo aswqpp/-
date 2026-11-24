@@ -116,16 +116,17 @@
             <div id="lobby-bots" class="grid grid-cols-5 gap-1.5"></div>
           </div>
           <div>
-            <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">BOT LEVEL</span>
-            <div id="lobby-level" class="grid grid-cols-3 gap-1.5"></div>
-          </div>
-          <div>
             <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">ROUNDS</span>
             <div id="lobby-rounds" class="grid grid-cols-3 gap-1.5"></div>
           </div>
           <div>
             <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">TIMER</span>
             <div id="lobby-timer" class="grid grid-cols-4 gap-1.5"></div>
+          </div>
+          <div class="flex items-end">
+            <p class="font-mono text-[10px] leading-relaxed text-ink/65 uppercase border-[1.5px] border-dashed border-ink/30 rounded-[4px] p-2.5">
+              EVERY BOT GETS A SECRET PERSONALITY EACH MATCH — STUBBORN, COPYCAT, CLOCKWORK… SPOT THE HABIT TO BEAT IT. REVEALED AT THE END.
+            </p>
           </div>
         </div>
 
@@ -141,7 +142,7 @@
           <button id="btn-create-room" type="button" class="btn w-full h-12 bg-deep text-stock font-sans font-bold text-sm uppercase tracking-wider">
             CREATE ROOM
           </button>
-          <p class="font-mono text-[10px] text-ink/60 uppercase">YOU GET A 4-LETTER CODE TO SHARE · ADD BOTS TO FILL SEATS</p>
+          <p class="font-mono text-[10px] text-ink/60 uppercase">YOU GET A 4-LETTER CODE TO SHARE · FILL SEATS WITH SECRET-PERSONALITY BOTS</p>
         </div>
 
         <div class="flex items-center gap-3">
@@ -201,7 +202,7 @@
           <span id="room-seat-count" class="font-mono text-[11px] font-semibold text-deep">0 / 6</span>
         </div>
         <div id="room-seats" class="space-y-1.5"></div>
-        <div id="room-add-bots" class="hidden mt-2.5 grid grid-cols-3 gap-1.5"></div>
+        <div id="room-add-bots" class="hidden mt-2.5"></div>
       </div>
 
       <!-- CONFIG (host edits, everyone sees) -->
@@ -525,6 +526,12 @@
       <div class="space-y-2">
         <div class="font-mono text-[11px] font-bold uppercase text-deep">FINAL STANDINGS</div>
         <div id="podium-table" class="space-y-1.5"></div>
+      </div>
+
+      <!-- Bot personalities, revealed -->
+      <div id="podium-reveal-wrap" class="hidden space-y-2">
+        <div class="font-mono text-[11px] font-bold uppercase text-deep">BOT REVEAL</div>
+        <div id="podium-reveal" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
       </div>
 
       <!-- Actions -->

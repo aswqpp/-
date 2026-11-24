@@ -4,9 +4,10 @@
  * WebSocket. Both hand the UI the same GameView.
  */
 import {
-  addBot, addHuman, advance, chooseBotPick, lock, newGame, resolveRound, startMatch,
-  type BotLevel, type Config, type GameState,
+  addBot, addHuman, advance, lock, newGame, resolveRound, startMatch,
+  type Config, type GameState,
 } from '../shared/engine';
+import { chooseBotPick } from '../shared/bots';
 import {
   CLOSE_FULL, CLOSE_IN_PROGRESS, CLOSE_LEFT, CLOSE_NOT_FOUND,
   toView, type ClientMsg, type GameView, type ServerMsg,
@@ -34,7 +35,7 @@ export interface Session {
   leave(): void;
   // Room lobby controls (host only on the server side).
   config(patch: Partial<Config>): void;
-  addBot(level: BotLevel): void;
+  addBot(): void;
   removeBot(id: string): void;
   start(): void;
 }
@@ -45,7 +46,6 @@ export interface SoloSetup {
   config: Config;
   name: string;
   bots: number;
-  level: BotLevel;
 }
 
 export class SoloSession implements Session {
@@ -57,7 +57,7 @@ export class SoloSession implements Session {
   constructor(setup: SoloSetup, private ev: SessionEvents) {
     this.g = newGame(setup.config);
     addHuman(this.g, 'me', setup.name);
-    for (let i = 0; i < setup.bots; i++) addBot(this.g, setup.level, `bot-${i}`);
+    for (let i = 0; i < setup.bots; i++) addBot(this.g, `bot-${i}`);
   }
 
   start(): void {
@@ -265,7 +265,7 @@ export class RoomSession implements Session {
   rematch(): void { this.send({ t: 'rematch' }); }
   toLobby(): void { this.send({ t: 'toLobby' }); }
   config(patch: Partial<Config>): void { this.send({ t: 'config', config: patch }); }
-  addBot(level: BotLevel): void { this.send({ t: 'addBot', level }); }
+  addBot(): void { this.send({ t: 'addBot' }); }
   removeBot(id: string): void { this.send({ t: 'removeBot', id }); }
   start(): void { this.send({ t: 'start' }); }
 

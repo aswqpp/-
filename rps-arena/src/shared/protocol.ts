@@ -1,10 +1,13 @@
 /** What the UI renders from, in both SOLO and ROOM mode. */
-import type { BotLevel, Config, GameState, Phase, Player } from './engine.ts';
+import { revealPersona, type PersonaReveal } from './bots.ts';
+import type { Config, GameState, Phase, Player } from './engine.ts';
 
 export interface PlayerView {
   id: string;
   name: string;
-  bot: BotLevel | null;
+  bot: boolean;
+  /** Only filled in on the podium. */
+  persona: PersonaReveal | null;
   score: number;
   w: number;
   d: number;
@@ -58,6 +61,7 @@ export function toView(
       id: p.id,
       name: p.name,
       bot: p.bot,
+      persona: s.phase === 'podium' ? revealPersona(s, p) : null,
       score: p.score,
       w: p.w,
       d: p.d,
@@ -67,7 +71,7 @@ export function toView(
       pickId: hidePicks && p.id !== opts.youId ? null : p.pickId,
       auto: p.auto,
       ready: p.ready,
-      connected: p.bot !== null || opts.connected(p),
+      connected: p.bot || opts.connected(p),
     })),
   };
 }
@@ -75,7 +79,7 @@ export function toView(
 /** Client → room messages. */
 export type ClientMsg =
   | { t: 'config'; config: Partial<Config> }
-  | { t: 'addBot'; level: BotLevel }
+  | { t: 'addBot' }
   | { t: 'removeBot'; id: string }
   | { t: 'start' }
   | { t: 'lock'; pickId: number }

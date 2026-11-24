@@ -1,5 +1,5 @@
 /** Main lobby: SOLO setup (bots) or ROOM (create / join by code). */
-import { BOT_LEVELS, MAX_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS } from '../../shared/engine';
+import { MAX_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS } from '../../shared/engine';
 import { normalizeCode } from '../../shared/protocol';
 import { VARIANTS, VARIANT_KEYS } from '../../shared/variants';
 import { $, optionGrid, segTabClass } from '../dom';
@@ -27,9 +27,6 @@ export function renderLobby(): void {
   const botCounts = Array.from({ length: MAX_PLAYERS - 1 }, (_, i) => i + 1);
   optionGrid($('lobby-bots'), botCounts, app.solo.bots, {
     onPick: (c) => { app.solo.bots = c; renderLobby(); },
-  });
-  optionGrid($('lobby-level'), BOT_LEVELS, app.solo.level, {
-    onPick: (l) => { app.solo.level = l; renderLobby(); },
   });
   optionGrid($('lobby-rounds'), ROUND_OPTIONS, app.solo.rounds, {
     onPick: (r) => { app.solo.rounds = r; renderLobby(); },

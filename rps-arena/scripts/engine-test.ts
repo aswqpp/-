@@ -1,8 +1,9 @@
 // Sanity checks for the shared engine: run with `npm test`.
 import assert from 'node:assert/strict';
 import {
-  addBot, addHuman, advance, allLocked, chooseBotPick, lock, newGame, resolveRound, startMatch, toLobby,
+  addBot, addHuman, advance, allLocked, lock, newGame, resolveRound, startMatch, toLobby, type GameState,
 } from '../src/shared/engine.ts';
+import { PERSONA_IDS, chooseBotPick, revealPersona, type PersonaId } from '../src/shared/bots.ts';
 import { judge, matchups } from '../src/shared/judge.ts';
 import { toView } from '../src/shared/protocol.ts';
 import { VARIANTS, VARIANT_KEYS } from '../src/shared/variants.ts';
@@ -31,7 +32,7 @@ assert.equal(judge(2, 0, 3), 'WIN'); // Paper beats Rock
 const g = newGame({ variantN: 3, rounds: 2, timerSec: 25 });
 addHuman(g, 'a', 'ann');
 addHuman(g, 'b', 'ANN'); // duplicate name gets a suffix
-addBot(g, 'EASY', 'c');
+addBot(g, 'c');
 assert.deepEqual(g.players.map((p) => p.name), ['ANN', 'ANN2', 'KAI']);
 startMatch(g, 1000);
 assert.equal(g.phase, 'pick');
@@ -64,19 +65,51 @@ assert.equal(g.phase, 'podium');
 toLobby(g);
 assert.equal(g.players[0].score, 0);
 
-// HARD bot punishes a player who always throws Rock.
-const h = newGame({ variantN: 3, rounds: 20, timerSec: 0 });
-addHuman(h, 'me', 'ME');
-const bot = addBot(h, 'HARD', 'bot')!;
-startMatch(h, 0);
-let botWins = 0;
-for (let r = 0; r < 20; r++) {
-  lock(h, 'me', 0);
-  lock(h, 'bot', chooseBotPick(h, bot));
-  resolveRound(h);
-  if (r >= 3 && h.players[1].pickId === 2) botWins++;
-  advance(h, 0);
+// Personas: dealt at start, distinct, secret until the podium, and each has a real habit.
+const pg = newGame({ variantN: 101, rounds: 3, timerSec: 0 });
+addHuman(pg, 'me', 'ME');
+for (let i = 0; i < 5; i++) addBot(pg, `b${i}`);
+startMatch(pg, 0);
+const dealt = pg.players.filter((p) => p.bot).map((p) => p.persona!.id);
+assert.equal(new Set(dealt).size, 5, 'personas are distinct within a match');
+const midView = toView(pg, { mode: 'solo', code: null, youId: 'me', hostId: 'me', now: 0, connected: () => true });
+assert.ok(midView.players.every((p) => p.persona === null), 'personas hidden mid-match');
+while (pg.phase !== 'podium') {
+  for (const p of pg.players) lock(pg, p.id, p.bot ? chooseBotPick(pg, p) : 0);
+  resolveRound(pg);
+  advance(pg, 0);
 }
-assert.ok(botWins >= 14, `HARD bot should read a Rock spammer (won ${botWins}/17)`);
+const endView = toView(pg, { mode: 'solo', code: null, youId: 'me', hostId: 'me', now: 0, connected: () => true });
+assert.ok(endView.players.filter((p) => p.bot).every((p) => p.persona && p.persona.detail.length > 0), 'revealed on podium');
+
+/** Play `rounds` rounds of one persona bot vs a human who always throws `human`. */
+function habit(id: PersonaId, n: 3 | 15, human = 0, rounds = 40): GameState {
+  const g = newGame({ variantN: n, rounds, timerSec: 0 });
+  addHuman(g, 'me', 'ME');
+  const b = addBot(g, 'bot')!;
+  startMatch(g, 0);
+  b.persona = { id, fav: [4], step: 3, cat: 'Nature', target: 'me' };
+  for (let r = 0; r < rounds; r++) {
+    lock(g, 'me', human);
+    lock(g, 'bot', chooseBotPick(g, b));
+    resolveRound(g);
+    advance(g, 0);
+  }
+  return g;
+}
+const share = (xs: number[], f: (x: number, i: number) => boolean) => xs.filter(f).length / xs.length;
+const botHist = (g: GameState) => g.players[1].history;
+assert.ok(share(botHist(habit('STUBBORN', 15)), (x) => x === 4) > 0.7, 'STUBBORN repeats its favourite');
+assert.ok(share(botHist(habit('MIRROR', 15, 6)).slice(1), (x) => x === 6) > 0.75, 'MIRROR copies its target');
+assert.ok(share(botHist(habit('COPYCAT', 15, 6)).slice(1), (x) => x === 6) > 0.75, 'COPYCAT copies the winner');
+assert.ok(share(botHist(habit('READER', 3)).slice(3), (x) => x === 2) > 0.7, 'READER counters a Rock spammer');
+const cyc = botHist(habit('CYCLER', 15));
+assert.ok(share(cyc.slice(1), (x, i) => x === (cyc[i] + 3) % 15) > 0.75, 'CYCLER steps around the ring');
+const fan = botHist(habit('FAN', 15));
+assert.ok(share(fan, (x) => ['Nature'].includes(['Rock', 'Fire', 'Scissors', 'Snake', 'Human', 'Tree', 'Wolf', 'Sponge', 'Paper', 'Air', 'Water', 'Dragon', 'Devil', 'Lightning', 'Gun'].map((nm) => ({ Rock: 'Nature', Fire: 'Nature', Tree: 'Nature', Water: 'Nature', Air: 'Nature', Lightning: 'Nature' } as Record<string, string>)[nm] ?? '')[x])) > 0.8, 'FAN sticks to its category');
+for (const id of PERSONA_IDS) {
+  const g = habit(id, 15, 0, 5);
+  assert.ok(revealPersona(g, g.players[1])?.detail, `${id} has a reveal line`);
+}
 
 console.log('engine: all checks passed');

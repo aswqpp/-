@@ -119,7 +119,7 @@ function endSession(): void {
 function startSolo(): void {
   const s = app.solo;
   const session = new SoloSession(
-    { config: { variantN: s.variantN, rounds: s.rounds, timerSec: s.timerSec }, name: playerName(), bots: s.bots, level: s.level },
+    { config: { variantN: s.variantN, rounds: s.rounds, timerSec: s.timerSec }, name: playerName(), bots: s.bots },
     sessionEvents(),
   );
   app.session = session;

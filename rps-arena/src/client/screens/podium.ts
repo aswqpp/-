@@ -44,6 +44,21 @@ export function renderPodium(): void {
     </div>
   `).join('');
 
+  const bots = v.players.filter((p) => p.bot && p.persona);
+  $('podium-reveal-wrap').classList.toggle('hidden', bots.length === 0);
+  $('podium-reveal').innerHTML = bots.map((p) => `
+    <div class="flex items-start gap-2.5 px-3 py-2.5 bg-stock border-[1.5px] border-ink rounded-[4px] shadow-[2px_2px_0_#1A2418]">
+      <div class="w-9 h-9 shrink-0 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-lg">${p.persona!.emoji}</div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-baseline gap-x-2">
+          <span class="font-sans font-bold text-sm uppercase">${esc(p.name)}</span>
+          <span class="font-mono text-[10px] font-bold text-deep">${esc(p.persona!.title)}</span>
+        </div>
+        <div class="font-mono text-[11px] text-ink/75 leading-snug mt-0.5">${esc(p.persona!.detail)}</div>
+      </div>
+    </div>
+  `).join('');
+
   const rematch = $<HTMLButtonElement>('btn-rematch');
   const lobby = $<HTMLButtonElement>('btn-podium-lobby');
   if (v.mode === 'room') {

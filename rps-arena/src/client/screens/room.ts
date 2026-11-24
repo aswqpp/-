@@ -1,5 +1,5 @@
 /** Room waiting area: seats, bots, settings, start. */
-import { BOT_LEVELS, MAX_PLAYERS, MIN_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS } from '../../shared/engine';
+import { MAX_PLAYERS, MIN_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS } from '../../shared/engine';
 import { VARIANTS, VARIANT_KEYS } from '../../shared/variants';
 import { $, copyText, esc, optionGrid, toast } from '../dom';
 import { app, isHost, isMe } from '../store';
@@ -34,7 +34,7 @@ export function renderRoom(): void {
     const tags = [
       p.id === v.hostId ? '<span class="px-1.5 py-0.5 bg-ink text-stock rounded-[2px]">HOST</span>' : '',
       isMe(p) ? '<span class="px-1.5 py-0.5 bg-deep text-stock rounded-[2px]">YOU</span>' : '',
-      p.bot ? `<span class="px-1.5 py-0.5 bg-tint text-ink border border-ink rounded-[2px]">BOT · ${p.bot}</span>` : '',
+      p.bot ? '<span class="px-1.5 py-0.5 bg-tint text-ink border border-ink rounded-[2px]" title="Personality is dealt at random when the match starts">BOT · ???</span>' : '',
       !p.connected ? '<span class="px-1.5 py-0.5 bg-[#FCE9E4] text-loss border border-loss rounded-[2px]">OFFLINE</span>' : '',
     ].join('');
     const remove = host && p.bot
@@ -65,12 +65,9 @@ export function renderRoom(): void {
   const canAdd = host && v.players.length < MAX_PLAYERS;
   addEl.classList.toggle('hidden', !canAdd);
   if (canAdd) {
-    addEl.innerHTML = BOT_LEVELS.map((l) => `
-      <button type="button" data-add="${l}" class="btn h-9 bg-tint text-ink font-mono text-[11px] font-bold uppercase">+ ${l} BOT</button>
-    `).join('');
-    addEl.querySelectorAll<HTMLButtonElement>('[data-add]').forEach((btn) => {
-      btn.addEventListener('click', () => app.session?.addBot(btn.dataset.add as (typeof BOT_LEVELS)[number]));
-    });
+    addEl.innerHTML = `
+      <button type="button" id="btn-add-bot" class="btn w-full h-9 bg-tint text-ink font-mono text-[11px] font-bold uppercase">+ ADD BOT</button>`;
+    $('btn-add-bot').addEventListener('click', () => app.session?.addBot());
   }
 
   $('room-host-note').textContent = host ? '' : 'HOST PICKS SETTINGS';

@@ -1,5 +1,5 @@
 /** App-wide state: what the server/engine says (view) + local UI state. */
-import type { Bout, BotLevel, Config } from '../shared/engine';
+import type { Bout, Config } from '../shared/engine';
 import type { GameView, PlayerView } from '../shared/protocol';
 import { VARIANTS, type Variant, type VariantN } from '../shared/variants';
 import type { NetStatus, Session } from './session';
@@ -12,7 +12,7 @@ export const app = {
   tab: 'PLAY' as Tab,
   lobbyMode: 'SOLO' as LobbyMode,
   name: '',
-  solo: { variantN: 15 as VariantN, rounds: 5, timerSec: 25, bots: 3, level: 'NORMAL' as BotLevel },
+  solo: { variantN: 15 as VariantN, rounds: 5, timerSec: 25, bots: 3 },
   session: null as Session | null,
   view: null as GameView | null,
   /** serverNow - Date.now() at the last view, to read deadlines correctly. */
@@ -89,8 +89,4 @@ export function setRenderer(fn: () => void): void {
 /** Re-render the whole current screen. */
 export function render(): void {
   renderer();
-}
-
-export function botTag(level: BotLevel | null): string {
-  return level ? `BOT · ${level}` : '';
 }

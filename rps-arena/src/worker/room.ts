@@ -6,11 +6,12 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import {
-  BOT_LEVELS, MAX_PLAYERS, MIN_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS,
-  addBot, addHuman, advance, allLocked, chooseBotPick, lock, newGame,
+  MAX_PLAYERS, MIN_PLAYERS, ROUND_OPTIONS, TIMER_OPTIONS,
+  addBot, addHuman, advance, allLocked, lock, newGame,
   removePlayer, resolveRound, startMatch, toLobby,
-  type BotLevel, type GameState,
+  type GameState,
 } from '../shared/engine';
+import { chooseBotPick } from '../shared/bots';
 import {
   CLOSE_FULL, CLOSE_IN_PROGRESS, CLOSE_LEFT, CLOSE_NOT_FOUND,
   toView, type ClientMsg, type ErrorCode, type ServerMsg,
@@ -141,8 +142,7 @@ export class Room extends DurableObject<Env> {
       case 'addBot':
         if (!isHost) return err('NOT_HOST', 'HOST ONLY');
         if (g.phase !== 'lobby') return;
-        if (!BOT_LEVELS.includes(msg.level as BotLevel)) return;
-        if (!addBot(g, msg.level, `b${d.nextId++}`)) return err('FULL', 'ROOM IS FULL');
+        if (!addBot(g, `b${d.nextId++}`)) return err('FULL', 'ROOM IS FULL');
         break;
 
       case 'removeBot':

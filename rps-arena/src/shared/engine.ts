@@ -3,14 +3,13 @@
  * ROOM (runs inside the room's Durable Object). No timers, no I/O: callers
  * drive it and decide when to call `resolveRound`.
  */
+import { dealPersonas, type Persona } from './bots.ts';
 import { judge, type Result } from './judge.ts';
 import { VARIANTS, type VariantN } from './variants.ts';
 
 export type Phase = 'lobby' | 'pick' | 'reveal' | 'podium';
-export type BotLevel = 'EASY' | 'NORMAL' | 'HARD';
 export type Rng = () => number;
 
-export const BOT_LEVELS: BotLevel[] = ['EASY', 'NORMAL', 'HARD'];
 export const BOT_NAMES = ['KAI', 'SORA', 'MIRA', 'REN', 'TAO'];
 export const ROUND_OPTIONS = [3, 5, 7];
 export const TIMER_OPTIONS = [0, 15, 25, 45]; // 0 = no limit
@@ -27,7 +26,9 @@ export interface Config {
 export interface Player {
   id: string;
   name: string;
-  bot: BotLevel | null;
+  bot: boolean;
+  /** Dealt at match start; secret until the podium. */
+  persona: Persona | null;
   score: number;
   w: number;
   d: number;
@@ -75,9 +76,9 @@ export function cleanName(raw: unknown, fallback = 'PLAYER'): string {
   return s || fallback;
 }
 
-function blankPlayer(id: string, name: string, bot: BotLevel | null): Player {
+function blankPlayer(id: string, name: string, bot: boolean): Player {
   return {
-    id, name, bot, score: 0, w: 0, d: 0, l: 0, delta: 0,
+    id, name, bot, persona: null, score: 0, w: 0, d: 0, l: 0, delta: 0,
     locked: false, pickId: null, auto: false, ready: false, history: [],
   };
 }
@@ -94,16 +95,16 @@ function uniqueName(s: GameState, name: string): string {
 }
 
 export function addHuman(s: GameState, id: string, name: string): Player {
-  const p = blankPlayer(id, uniqueName(s, cleanName(name)), null);
+  const p = blankPlayer(id, uniqueName(s, cleanName(name)), false);
   s.players.push(p);
   return p;
 }
 
-export function addBot(s: GameState, level: BotLevel, id: string): Player | null {
+export function addBot(s: GameState, id: string): Player | null {
   if (s.players.length >= MAX_PLAYERS) return null;
   const used = new Set(s.players.map((p) => p.name));
   const name = BOT_NAMES.find((n) => !used.has(n)) ?? uniqueName(s, 'BOT');
-  const p = blankPlayer(id, name, level);
+  const p = blankPlayer(id, name, true);
   s.players.push(p);
   return p;
 }
@@ -112,11 +113,12 @@ export function removePlayer(s: GameState, id: string): void {
   s.players = s.players.filter((p) => p.id !== id);
 }
 
-export function startMatch(s: GameState, now: number): void {
+export function startMatch(s: GameState, now: number, rng: Rng = Math.random): void {
   s.round = 0;
   for (const p of s.players) {
-    Object.assign(p, { score: 0, w: 0, d: 0, l: 0, delta: 0, history: [] });
+    Object.assign(p, { score: 0, w: 0, d: 0, l: 0, delta: 0, history: [], persona: null });
   }
+  dealPersonas(s, rng);
   startRound(s, now);
 }
 
@@ -203,71 +205,13 @@ export function toLobby(s: GameState): void {
   for (const p of s.players) {
     Object.assign(p, {
       score: 0, w: 0, d: 0, l: 0, delta: 0,
-      locked: false, pickId: null, auto: false, ready: false, history: [],
+      locked: false, pickId: null, auto: false, ready: false, history: [], persona: null,
     });
   }
 }
 
 export function standings(players: Player[]): Player[] {
   return [...players].sort((a, b) => b.score - a.score || b.w - a.w);
-}
-
-/* ------------------------------------------------------------------------- */
-/* Bots                                                                       */
-/* ------------------------------------------------------------------------- */
-
-/**
- * EASY   — uniform random.
- * NORMAL — half the time random, otherwise a loose read of opponents.
- * HARD   — models each opponent's next pick from their (recency-weighted)
- *          history and plays the item expected to beat the most of them,
- *          sampled softly so it stays hard to counter.
- */
-export function chooseBotPick(s: GameState, bot: Player, rng: Rng = Math.random): number {
-  const n = s.config.variantN;
-  const level = bot.bot ?? 'EASY';
-  const opponents = s.players.filter((p) => p.id !== bot.id);
-  const hasHistory = opponents.some((p) => p.history.length > 0);
-  if (level === 'EASY' || !hasHistory || (level === 'NORMAL' && rng() < 0.5)) {
-    return Math.floor(rng() * n);
-  }
-
-  // Expected number of opponents each candidate beats.
-  const score = new Array<number>(n).fill(0);
-  for (const o of opponents) {
-    const dist = predict(o.history, n);
-    for (let c = 0; c < n; c++) {
-      let win = 0;
-      for (let k = 0; k < n; k++) if (judge(c, k, n) === 'WIN') win += dist[k];
-      score[c] += win;
-    }
-  }
-
-  // Softmax sampling; HARD is sharper than NORMAL.
-  const temp = (level === 'HARD' ? 0.12 : 0.35) * Math.max(1, opponents.length / 2);
-  const max = Math.max(...score);
-  const weights = score.map((v) => Math.exp((v - max) / temp));
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = rng() * total;
-  for (let c = 0; c < n; c++) {
-    r -= weights[c];
-    if (r <= 0) return c;
-  }
-  return n - 1;
-}
-
-/** Probability of each item being picked next, from past picks. */
-function predict(history: number[], n: number): number[] {
-  const alpha = 0.6; // Laplace smoothing toward uniform
-  const decay = 0.7; // older picks count less
-  const dist = new Array<number>(n).fill(alpha);
-  let w = 1;
-  for (let i = history.length - 1; i >= 0; i--) {
-    dist[history[i]] += w * 2;
-    w *= decay;
-  }
-  const total = dist.reduce((a, b) => a + b, 0);
-  return dist.map((v) => v / total);
 }
 
 export function variantOf(s: GameState) {
