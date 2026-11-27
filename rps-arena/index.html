@@ -54,8 +54,8 @@
           ROOM K7X2
         </span>
         <div id="nav-standings-wrap" class="hidden relative">
-          <button id="nav-standings-btn" type="button" class="btn h-8 px-2.5 bg-stock font-mono text-[11px] font-bold uppercase">
-            STANDINGS
+          <button id="nav-standings-btn" type="button" aria-label="Standings" class="btn h-8 px-2.5 bg-stock font-mono text-[11px] font-bold uppercase">
+            <span class="sm:hidden">PTS</span><span class="hidden sm:inline">STANDINGS</span>
           </button>
           <!-- Standings Drawer Popover -->
           <div id="nav-standings-drawer" class="hidden absolute right-0 top-10 z-50 w-60 card-stock p-3">
@@ -64,6 +64,25 @@
               <span id="drawer-round-tag" class="font-mono text-[10px] font-semibold text-ink/70">R1 / 5</span>
             </div>
             <div id="drawer-standings-list" class="space-y-1.5"></div>
+          </div>
+        </div>
+        <div class="relative">
+          <button id="nav-settings-btn" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false" class="btn h-8 w-8 bg-stock flex items-center justify-center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <!-- Settings Popover -->
+          <div id="nav-settings-pop" class="hidden absolute right-0 top-10 z-50 w-64 card-stock p-3.5 space-y-3">
+            <div class="pb-2 border-b border-ink/20 font-mono text-[10px] font-bold uppercase text-deep">SETTINGS</div>
+            <div>
+              <span class="block font-mono text-[11px] font-bold uppercase text-ink/75 mb-2">ICONS</span>
+              <div id="settings-icons" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+            <p class="font-mono text-[10px] leading-relaxed text-ink/60">
+              Hand symbols © David C. Lovelace, <a href="https://umop.com/rps101.htm" target="_blank" rel="noopener" class="underline">umop.com</a>. Used with permission.
+            </p>
           </div>
         </div>
       </div>
@@ -175,6 +194,9 @@
         RING ATLAS →
       </button>
     </div>
+    <p class="mt-4 text-center font-mono text-[10px] text-ink/55">
+      RPS-101 hand symbols © David C. Lovelace, <a href="https://umop.com/rps101.htm" target="_blank" rel="noopener" class="underline">umop.com</a> · used with permission
+    </p>
   </main>
 
   <!-- =========================================================================
@@ -312,7 +334,7 @@
 
           <!-- Selected Card Preview -->
           <div class="flex items-center gap-3.5">
-            <div id="insp-icon" class="w-16 h-16 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-4xl shrink-0">
+            <div id="insp-icon" class="w-16 h-16 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center shrink-0">
               ·
             </div>
             <div class="min-w-0">
@@ -356,7 +378,7 @@
     <!-- Mobile Sticky Bottom Lock Bar -->
     <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-stock border-t-[1.5px] border-ink px-4 h-[62px] flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
-        <div id="mob-lock-icon" class="w-10 h-10 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-xl shrink-0">
+        <div id="mob-lock-icon" class="w-10 h-10 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center shrink-0">
           ·
         </div>
         <div class="min-w-0">
@@ -418,7 +440,7 @@
               <span id="left-player-name" class="font-mono text-[11px] font-bold uppercase truncate">YOU</span>
               <span id="left-item-id" class="font-mono text-[10px] font-semibold text-ink/60">#00</span>
             </div>
-            <div id="left-item-emoji" class="text-5xl sm:text-6xl leading-none my-3 select-none">🪨</div>
+            <div id="left-item-emoji" class="h-[92px] my-2 flex items-center justify-center select-none"></div>
             <div id="left-item-name" class="font-sans font-bold text-sm sm:text-base uppercase tracking-tight truncate w-full">ROCK</div>
             <!-- Vermilion Strike Line for Loser -->
             <div id="left-strike" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -470,7 +492,7 @@
               <span id="right-player-name" class="font-mono text-[11px] font-bold uppercase truncate">KAI</span>
               <span id="right-item-id" class="font-mono text-[10px] font-semibold text-ink/60">#01</span>
             </div>
-            <div id="right-item-emoji" class="text-5xl sm:text-6xl leading-none my-3 select-none">✂️</div>
+            <div id="right-item-emoji" class="h-[92px] my-2 flex items-center justify-center select-none"></div>
             <div id="right-item-name" class="font-sans font-bold text-sm sm:text-base uppercase tracking-tight truncate w-full">SCISSORS</div>
             <!-- Vermilion Strike Line for Loser -->
             <div id="right-strike" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center">

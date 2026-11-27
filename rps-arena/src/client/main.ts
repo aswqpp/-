@@ -3,10 +3,10 @@ import { cleanName } from '../shared/engine';
 import { normalizeCode, type GameView } from '../shared/protocol';
 import { $, toast } from './dom';
 import { renderLobby, wireLobby } from './screens/lobby';
-import { syncView, wireNav } from './screens/nav';
+import { syncView, wireNav, wireSettings } from './screens/nav';
 import { refreshPickStatus, renderPick, resetPick, updateTimer, wirePick } from './screens/pick';
 import { renderPodium, wirePodium } from './screens/podium';
-import { enterReveal, renderReveal, wireReveal } from './screens/reveal';
+import { enterReveal, redrawBout, renderReveal, wireReveal } from './screens/reveal';
 import { renderRingPage } from './screens/ring';
 import { renderRoom, wireRoom } from './screens/room';
 import { RoomSession, SoloSession, createRoom, hasSeatToken, type SessionEvents } from './session';
@@ -180,6 +180,10 @@ function openRing(syncVariant: boolean): void {
 function boot(): void {
   app.name = loadName();
   wireNav(openPlay, openRing);
+  wireSettings(() => {
+    renderAll();
+    if (currentScreen() === 'reveal') redrawBout();
+  });
   wireLobby({
     startSolo,
     createRoom: () => void onCreateRoom(),

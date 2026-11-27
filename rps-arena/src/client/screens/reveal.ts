@@ -3,6 +3,7 @@ import { computeBouts, type Bout } from '../../shared/engine';
 import { clashCallout, fmtId, type Result } from '../../shared/judge';
 import type { PlayerView } from '../../shared/protocol';
 import { $, esc } from '../dom';
+import { iconHtml } from '../icons';
 import { activeVariant, app, clearChoreoTimers, isMe, me, sortedPlayers, ui } from '../store';
 import { renderHistory } from './history';
 
@@ -102,7 +103,7 @@ function renderRevealStandingsBar(): void {
     return `
       <div class="inline-flex items-center gap-2 px-2.5 py-1.5 border-[1.5px] border-ink rounded-[4px] font-mono text-xs ${mine ? 'bg-deep text-stock shadow-[2px_2px_0_#1A2418]' : 'bg-paper text-ink'}">
         <span class="font-bold">${i + 1}. ${esc(p.name)}</span>
-        <span class="text-base leading-none" title="${esc(it?.name ?? '')}">${it?.emoji ?? '·'}</span>
+        <span class="inline-flex" title="${esc(it?.name ?? '')}">${iconHtml(it, 22)}</span>
         ${p.auto ? `<span class="text-[9px] px-1 border border-current rounded-[2px]" title="Timer ran out: picked at random">AUTO</span>` : ''}
         <span class="text-[11px] ${mine ? 'text-paper' : 'text-deep'} font-semibold">${p.delta > 0 ? `+${p.delta}` : '0'}</span>
         <span class="font-bold border-l ${mine ? 'border-stock/40' : 'border-ink/30'} pl-1.5">${p.score}</span>
@@ -165,11 +166,11 @@ function playBoutAnimation(bout: Bout<PlayerView> | undefined, instant: boolean)
 
   $('left-player-name').textContent = bout.left.name;
   $('left-item-id').textContent = fmtId(leftItem.id, v.n);
-  $('left-item-emoji').textContent = leftItem.emoji;
+  $('left-item-emoji').innerHTML = iconHtml(leftItem, 92);
   $('left-item-name').textContent = leftItem.name;
   $('right-player-name').textContent = bout.right.name;
   $('right-item-id').textContent = fmtId(rightItem.id, v.n);
-  $('right-item-emoji').textContent = rightItem.emoji;
+  $('right-item-emoji').innerHTML = iconHtml(rightItem, 92);
   $('right-item-name').textContent = rightItem.name;
 
   const leftIsMe = isMe(bout.left);
@@ -249,6 +250,11 @@ function playBoutAnimation(bout: Bout<PlayerView> | undefined, instant: boolean)
   }, 290);
   const t3 = setTimeout(applyFinalResult, 520);
   ui.choreoTimers.push(t2, t3);
+}
+
+/** Redraw the bout on stage without animating (e.g. after the icon style changes). */
+export function redrawBout(): void {
+  playBoutAnimation(boutList()[ui.activeBoutIndex], true);
 }
 
 export function wireReveal(): void {

@@ -38,6 +38,12 @@ N(홀수)개 항목이 원 위에 놓이고, `diff = (b - a + N) % N`가 `1..(N-
 | 🌊 THE DRIFTER | 지난번 픽의 이웃 칸으로 조금씩 이동 |
 | ⭐ THE SUPERFAN | 한 카테고리만 냄(RPS-15 이상) |
 
+### 아이콘
+
+상단 ⚙️ 설정에서 **손 모양(기본) / 이모티콘**을 바꿀 수 있어요(브라우저에 저장).
+손 모양은 RPS-101 원작 그림 101장(`public/hands/`, 그중 10장은 움직이는 GIF)이고, 그림이 없는 항목(Lizard·Spock·Human)은 이모티콘으로 나와요.
+RPS-101 hand symbols © David C. Lovelace ([umop.com](https://umop.com/rps101.htm)), used with permission.
+
 ## 구조
 
 ```
@@ -56,6 +62,7 @@ src/
     session.ts       SoloSession(브라우저 안 엔진) / RoomSession(WebSocket) — 같은 인터페이스
     store.ts         앱 상태 + UI 상태
     dom.ts           $, esc, toast, 복사, 옵션 버튼 그리드
+    icons.ts         손 모양/이모티콘 설정과 아이콘 그리기 (hand-files.ts: 이름→파일)
     styles.css       Tailwind v4 테마 + 리소 스타일·애니메이션
     screens/         lobby · room · pick · reveal · podium · ring · nav
 index.html           마크업(원본 디자인 유지)

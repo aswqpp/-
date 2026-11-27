@@ -2,6 +2,7 @@
 import { judge, fmtId, matchups } from '../../shared/judge';
 import { CATEGORIES } from '../../shared/variants';
 import { $, esc } from '../dom';
+import { iconHtml } from '../icons';
 import { activeVariant, app, isMe, me, ui } from '../store';
 import { renderHistory } from './history';
 
@@ -144,7 +145,7 @@ export function renderPickGrid(): void {
             <span class="font-mono text-[10px] font-semibold ${isSel ? 'text-paper' : 'text-ink/55'}">${fmtId(it.id, n)}</span>
             ${badge}
           </div>
-          <div class="text-3xl leading-none my-1.5 select-none">${it.emoji}</div>
+          <div class="h-12 my-1 flex items-center justify-center">${iconHtml(it, 48)}</div>
           <div class="w-full font-sans font-bold text-xs uppercase truncate mt-1">${esc(it.name)}</div>
         </button>
       `;
@@ -179,7 +180,7 @@ export function renderInspector(): void {
 
   if (selId === null) {
     $('insp-index').textContent = `-- / ${n}`;
-    $('insp-icon').textContent = '·';
+    $('insp-icon').innerHTML = iconHtml(null, 52);
     $('insp-name').textContent = 'SELECT CARD';
     $('insp-split').textContent = 'MANUAL PICK';
     $('insp-pos-label').textContent = '--';
@@ -189,7 +190,7 @@ export function renderInspector(): void {
     tabB.className = 'btn h-8 bg-stock text-deep font-mono text-[11px] font-bold uppercase';
     tabL.className = 'btn h-8 bg-stock text-loss font-mono text-[11px] font-bold uppercase';
     chipsEl.innerHTML = `<span class="font-mono text-[11px] text-ink/55 uppercase">CLICK ANY CARD</span>`;
-    $('mob-lock-icon').textContent = '·';
+    $('mob-lock-icon').innerHTML = iconHtml(null, 32);
     $('mob-lock-name').textContent = 'SELECT CARD';
     $('mob-lock-meta').textContent = 'MANUAL PICK';
     return;
@@ -197,12 +198,12 @@ export function renderInspector(): void {
 
   const sel = v.items[selId];
   $('insp-index').textContent = `${fmtId(sel.id, n)} · ${sel.cat.toUpperCase()}`;
-  $('insp-icon').textContent = sel.emoji;
+  $('insp-icon').innerHTML = iconHtml(sel, 56);
   $('insp-name').textContent = sel.name;
   $('insp-split').textContent = locked ? 'LOCKED IN' : `BEATS ${half} · LOSES ${half}`;
   $('insp-pos-label').textContent = `${sel.id + 1} / ${n}`;
   $('insp-pos-fill').style.width = `${Math.round(((sel.id + 1) / n) * 100)}%`;
-  $('mob-lock-icon').textContent = sel.emoji;
+  $('mob-lock-icon').innerHTML = iconHtml(sel, 34);
   $('mob-lock-name').textContent = sel.name;
   $('mob-lock-meta').textContent = locked ? 'LOCKED IN' : `BEATS ${half} · LOSES ${half}`;
 
@@ -218,7 +219,7 @@ export function renderInspector(): void {
     : 'bg-[#FCE9E4] border-loss text-ink hover:bg-loss hover:text-stock';
   chipsEl.innerHTML = list.map((it) => `
     <button type="button" data-jump="${it.id}" class="inline-flex items-center gap-1 px-2 py-1 border-[1.5px] rounded-[3px] font-mono text-[11px] font-semibold transition cursor-pointer ${chipStyle}">
-      <span>${it.emoji}</span>
+      ${iconHtml(it, 18)}
       <span>${esc(it.name)}</span>
     </button>
   `).join('');

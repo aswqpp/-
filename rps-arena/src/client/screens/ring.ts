@@ -2,6 +2,7 @@
 import { fmtId, judge, matchups } from '../../shared/judge';
 import { VARIANTS, VARIANT_KEYS } from '../../shared/variants';
 import { $, esc } from '../dom';
+import { handUrl, iconHtml } from '../icons';
 import { ui } from '../store';
 
 function polar(cx: number, cy: number, r: number, ang: number) {
@@ -115,6 +116,7 @@ function renderRingDiagramSVG(): void {
     const isHov = hovItem && hovItem.id === pt.id;
     const res = isSel ? 'SELF' : judge(selId, pt.id, n);
 
+    const hand = handUrl(pt);
     let fill = '#F5FBF5', stroke = '#1A2418', sw = 1.5;
     if (isSel) {
       fill = '#1A2418'; stroke = '#1A2418'; sw = 2.5;
@@ -123,6 +125,13 @@ function renderRingDiagramSVG(): void {
     } else {
       fill = isHov ? '#C84B31' : '#FCE9E4'; stroke = '#C84B31'; sw = isHov ? 2.5 : 1.5;
     }
+    // Hand symbols fill the node, so the WIN/LOSE colour lives in a bolder rim.
+    if (hand) sw += n === 101 ? 0.8 : 1.5;
+    const r = isSel || isHov ? nodeR + 2 : nodeR;
+    const imgR = r - sw / 2 - (n === 101 ? 0.5 : 1.5);
+    const glyph = hand
+      ? `<image href="${hand}" x="${(pt.x - imgR).toFixed(1)}" y="${(pt.y - imgR).toFixed(1)}" width="${(imgR * 2).toFixed(1)}" height="${(imgR * 2).toFixed(1)}" style="pointer-events:none" />`
+      : `<text x="${pt.x.toFixed(1)}" y="${(pt.y + emojiSz * 0.36).toFixed(1)}" text-anchor="middle" font-size="${emojiSz}" style="pointer-events:none; user-select:none;">${pt.emoji}</text>`;
 
     let labelSvg = '';
     if (n <= 25) {
@@ -141,8 +150,8 @@ function renderRingDiagramSVG(): void {
     nodesSvg += `
       <g class="ring-node" data-rnode="${pt.id}">
         <title>${fmtId(pt.id, n)} ${esc(pt.name)}</title>
-        <circle class="node-bg" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${isSel || isHov ? nodeR + 2 : nodeR}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />
-        <text x="${pt.x.toFixed(1)}" y="${(pt.y + emojiSz * 0.36).toFixed(1)}" text-anchor="middle" font-size="${emojiSz}" style="pointer-events:none; user-select:none;">${pt.emoji}</text>
+        <circle class="node-bg" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />
+        ${glyph}
         ${labelSvg}
       </g>
     `;
@@ -158,9 +167,9 @@ function renderRingDiagramSVG(): void {
     hubHtml = `
       <div class="w-full h-full flex flex-col items-center justify-center text-center px-2">
         <div class="flex items-center gap-2 text-2xl leading-none mb-1.5">
-          <span>${selItem.emoji}</span>
+          ${iconHtml(selItem, 40)}
           <span class="font-mono text-sm font-bold text-ink">${sym}</span>
-          <span>${hovItem.emoji}</span>
+          ${iconHtml(hovItem, 40)}
         </div>
         <div class="font-sans font-bold text-xs uppercase leading-tight text-ink">
           ${esc(selItem.name)} ${sym} ${esc(hovItem.name)}
@@ -171,7 +180,7 @@ function renderRingDiagramSVG(): void {
   } else {
     hubHtml = `
       <div class="w-full h-full flex flex-col items-center justify-center text-center px-2">
-        <div class="text-4xl leading-none mb-1.5">${selItem.emoji}</div>
+        <div class="mb-1.5">${iconHtml(selItem, n === 101 ? 84 : 64)}</div>
         <div class="font-sans font-bold text-sm uppercase leading-tight text-ink truncate max-w-full">
           ${esc(selItem.name)}
         </div>
@@ -232,8 +241,8 @@ function renderRingSidePanel(): void {
 
   el.innerHTML = `
     <div class="flex items-center gap-3 pb-3.5 mb-3.5 border-b-[1.5px] border-ink">
-      <div class="w-12 h-12 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center text-2xl shrink-0">
-        ${sel.emoji}
+      <div class="w-12 h-12 bg-paper border-[1.5px] border-ink rounded-[4px] flex items-center justify-center shrink-0">
+        ${iconHtml(sel, 40)}
       </div>
       <div class="min-w-0">
         <div class="font-sans font-bold text-base uppercase truncate">${esc(sel.name)}</div>
@@ -253,7 +262,7 @@ function renderRingSidePanel(): void {
     <div class="max-h-[450px] overflow-y-auto flex flex-wrap gap-1.5 content-start pr-1">
       ${list.map((it) => `
         <button type="button" data-rjump="${it.id}" class="inline-flex items-center gap-1 px-2 py-1 border-[1.5px] rounded-[3px] font-mono text-[11px] font-semibold transition cursor-pointer ${chipCls}">
-          <span>${it.emoji}</span>
+          ${iconHtml(it, 18)}
           <span>${esc(it.name)}</span>
         </button>
       `).join('')}

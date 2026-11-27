@@ -4,6 +4,7 @@
  */
 import { fmtId } from '../../shared/judge';
 import { $, esc } from '../dom';
+import { iconHtml } from '../icons';
 import { activeVariant, app, isMe } from '../store';
 
 export function renderHistory(wrapId: string, tableId: string): void {
@@ -29,7 +30,7 @@ export function renderHistory(wrapId: string, tableId: string): void {
         <td class="px-1 py-1 text-center align-middle">
           ${it ? `
             <div class="inline-flex flex-col items-center leading-none" title="${esc(`${fmtId(it.id, n)} ${it.name} · +${pts}`)}">
-              <span class="text-xl select-none">${it.emoji}</span>
+              ${iconHtml(it, 30)}
               <span class="font-mono text-[9px] font-bold mt-0.5 ${ptsCls}">+${pts}</span>
             </div>` : '<span class="text-ink/30">·</span>'}
         </td>`;
